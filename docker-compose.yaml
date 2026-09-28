@@ -9,7 +9,17 @@ services:
       - "1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
+      - ./data/prepared:/var/opt/mssql/csv
     restart: unless-stopped
+
+  preprocessing:
+    image: python:3.13-slim
+    container_name: olist-preprocessing
+    volumes:
+      - ./data:/app/data
+      - ./scripts:/app/scripts
+    working_dir: /app
+    command: python scripts/preprocess.py
 
 volumes:
   sqlserver_data:
