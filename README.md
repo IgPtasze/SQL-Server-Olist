@@ -11,7 +11,7 @@ Current stage:
 * [x] Docker environment
 * [x] Data preprocessing
 * [x] Bronze layer
-* [ ] Silver layer
+* [x] Silver layer
 * [ ] Gold layer
 * [ ] Business-oriented analytical queries
 
@@ -38,7 +38,7 @@ Preprocessing
 Business Analysis
 ```
 
-The current implementation covers the **preprocessing and Bronze layer**.
+The current implementation covers the **preprocessing, Bronze and Silver layers**.
 
 ## Technologies
 
@@ -93,9 +93,67 @@ The procedure:
 1. clears the target Bronze tables,
 2. loads the prepared CSV files using `BULK INSERT`,
 3. loads the data using SQL Server's Unicode/wide-character support,
-4. records the execution time of the load.
+4. performs the load within a transaction,
+5. records the execution time of the load.
 
-This provides a repeatable way of rebuilding the Bronze layer from the prepared source files.
+Using a transaction ensures that the Bronze layer is not left in a partially loaded state if an error occurs during the loading process.
+
+This provides a repeatable way of rebuilding the Bronze layer from the converted source files.
+
+## Silver layer
+
+The Silver layer is responsible for cleaning, transforming and validating the data loaded into the Bronze layer.
+
+The main goals of this layer are:
+
+* converting source values to appropriate SQL Server data types,
+* handling empty values and `NULL`s,
+* trimming text values,
+* cleaning problematic characters from source values,
+* preparing the data for further transformation in the Gold layer,
+* validating the quality of the loaded data.
+
+The Silver layer uses a dedicated `silver` schema.
+
+Tables in the Silver layer use more appropriate data types than the Bronze layer. For example, numeric values are converted to `INT` or `DECIMAL`, date and time values are converted to `DATETIME2`, and text fields use appropriate `NVARCHAR` lengths.
+
+### Data loading
+
+Data is loaded into Silver using the `silver.LoadData` stored procedure.
+
+The procedure:
+
+1. clears the target Silver tables,
+2. reads data from the Bronze layer,
+3. cleans and transforms source values,
+4. converts values to the appropriate data types,
+5. handles empty values and `NULL`s,
+6. adds a `LoadTimestamp` to loaded records.
+
+The `LoadTimestamp` is generated during the load using `SYSDATETIME()` and provides information about when the data was loaded into the Silver layer.
+
+### Data validation
+
+The Silver layer includes a dedicated `silver.ValidateData` stored procedure used to verify the quality of the transformed data.
+
+The validation includes:
+
+* **row count checks** between Bronze and Silver,
+* **required field `NULL` checks**,
+* **value range checks** (e.g., non-negative prices, valid review scores),
+* **date consistency checks** (chronological timestamp integrity),
+* **referential integrity checks** (orphan foreign key identification),
+* **duplicate primary key checks** (single and composite primary key uniqueness),
+* **audit field checks** (`LoadTimestamp` verification).
+
+The validation procedure is executed after the Silver load to identify unexpected issues introduced during the transformation process before the data is used in the Gold layer.
+
+### Key data quality fixes in Silver
+
+During the Silver load, specific source data anomalies are handled deterministically:
+* **Invalid carrier dates:** 166 records with carrier pickup dates earlier than purchase timestamps are converted to `NULL` to preserve order data without distorting logistics KPIs.
+* **Zero installments:** Payment records with `0` installments are mapped to `1` (single-lump payment) to prevent division-by-zero errors in downstream calculations.
+* **Orphan sellers:** 3 seller references in order items missing from the seller directory are retained in Silver and will be mapped to an **Unknown Member (`-1`)** in the Gold dimensional schema.
 
 ## Running the project
 
@@ -138,6 +196,12 @@ The preprocessing container prepares the source CSV files for SQL Server.
 Connect to the SQL Server instance and execute the database, schema and Bronze layer scripts, followed by the `bronze.LoadData` procedure.
 
 The Bronze layer can then be rebuilt from the prepared source files.
+
+### 6. Load and validate Silver
+
+After the Bronze layer has been loaded, execute the Silver layer scripts and run the `silver.LoadData` procedure.
+
+After the Silver load is completed, run `silver.ValidateData` to verify the row counts, conversions, required fields, value ranges and date consistency.
 
 ## Project structure
 
