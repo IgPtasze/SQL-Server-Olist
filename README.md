@@ -4,6 +4,12 @@ Data engineering portfolio project based on the **Brazilian E-Commerce Public Da
 
 The project focuses on building a data warehouse in **Microsoft SQL Server**, with the data pipeline and database environment containerized using Docker.
 
+## Source data
+
+The project uses the **Brazilian E-Commerce Public Dataset by Olist**, containing information about orders, customers, products, sellers, payments, reviews and related entities.
+
+The dataset is used as the source for building the data warehouse and developing business-oriented analytical questions in later stages.
+
 ## Project status
 
 Current stage:
@@ -222,8 +228,76 @@ SQL-Server-Olist/
 └── README.md
 ```
 
-## Source data
+## Gold Layer - Dimensional Model
 
-The project uses the **Brazilian E-Commerce Public Dataset by Olist**, containing information about orders, customers, products, sellers, payments, reviews and related entities.
+The Gold layer is designed according to **Kimball dimensional modeling principles**, with the goal of creating a business-oriented analytical model rather than simply exposing the structure of the source data.
 
-The dataset is used as the source for building the data warehouse and developing business-oriented analytical questions in later stages.
+The model was designed by first identifying the **business processes and the grain of each fact table**, and then selecting the dimensions and measures required to support analytical use cases.
+
+### Business Processes
+
+The Gold layer covers four main business processes:
+
+1. **Orders & Fulfillment** - tracking orders and their delivery lifecycle.
+2. **Sales** - analyzing individual items purchased within orders.
+3. **Payments** - analyzing payment methods, values and installments.
+4. **Reviews** - analyzing customer reviews and review scores.
+
+### Fact Tables
+
+Each fact table has a clearly defined grain:
+
+| Fact Table            | Grain                  |
+| --------------------- | ---------------------- |
+| `fact_orders`         | One row per order      |
+| `fact_order_items`    | One row per order item |
+| `fact_order_payments` | One row per payment    |
+| `fact_order_reviews`  | One row per review     |
+
+This grain definition determines which dimensions and measures can be correctly associated with each fact.
+
+### Dimension Tables
+
+The model contains four conformed dimensions:
+
+* `dim_customer` - customer information and location.
+* `dim_product` - product attributes and category information.
+* `dim_seller` - seller information and location.
+* `dim_date` - calendar attributes used by the fact tables.
+
+The `dim_date` dimension is used as a **role-playing dimension**, allowing different dates from the same fact table to be analyzed independently, for example purchase date, approval date, carrier date and delivery date.
+
+### Surrogate Keys
+
+Dimensions use **surrogate keys** as their primary keys. Source-system identifiers are retained as business keys where appropriate.
+
+This separates the analytical model from source-system identifiers and provides a more robust foundation for future changes to source data or the ETL process.
+
+### Slowly Changing Dimensions
+
+The dimensions use a **Type 1 Slowly Changing Dimension (SCD)** approach.
+
+Historical attribute changes are not tracked because the Olist dataset represents a static historical dataset and does not provide a meaningful stream of dimension changes over time.
+
+### Business-Oriented Gold Layer
+
+The Gold layer does not reproduce every column from the Silver layer. Columns were selected based on their analytical or business value.
+
+For example, product attributes such as `NameLength` and `DescriptionLength` were excluded because they do not provide a sufficiently meaningful business use case for this project.
+
+The Gold layer also contains selected **derived business attributes**, such as:
+
+* delivery and processing durations,
+* delivery status indicators,
+* late-delivery indicators,
+* additive count measures.
+
+These attributes are calculated during the Gold transformation rather than copied directly from the source.
+
+### Data Relationships
+
+Fact tables are connected to dimensions through surrogate keys. Fact tables are not directly linked to one another.
+
+`OrderId` is retained in the relevant fact tables as a business identifier, allowing the same order to be analyzed across different business processes without introducing fact-to-fact dependencies.
+
+The review fact does not contain a product key because a review is associated with an order rather than with a uniquely identifiable product. An order may contain multiple products, so assigning a review directly to a product would introduce an incorrect relationship.
