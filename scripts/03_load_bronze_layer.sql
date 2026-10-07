@@ -2,7 +2,16 @@
 ===============================================================================
 Stored Procedure: Load Data Into Bronze Layer
 ===============================================================================
+Loads source CSV files into the Bronze layer using BULK INSERT.
+
+Source data is loaded as NVARCHAR to preserve the original values before
+transformation and type conversion in the Silver layer.
+
+Source files are converted to UTF-16 during preprocessing to support loading
+into SQL Server running in a Linux-based Docker container.
+===============================================================================
 */
+
 USE OlistDWH;
 GO
 
@@ -13,13 +22,21 @@ BEGIN
     BEGIN TRY
         SET @BatchStartTime = SYSDATETIME();
 
-        -- Wrap in an atomic transaction for pipeline failure safety (Docker / CI/CD execution)
+        /* ============================================================================
+           Load Bronze Layer
+        ============================================================================ */
+
         BEGIN TRANSACTION;
 
         PRINT 'Loading Data Into Bronze Layer:'
 
-        -- 1) Load data from olist_customers_dataset.csv --
+
+        /* ----------------------------------------------------------------------------
+           Customers
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.Customers'
         TRUNCATE TABLE bronze.Customers;
     
@@ -34,13 +51,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                    ';
 
 
-        -- 2) Load data from olist_geolocation_dataset.csv --
+        /* ----------------------------------------------------------------------------
+           Geolocation
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.Geolocation'
         TRUNCATE TABLE bronze.Geolocation;
 
@@ -55,13 +77,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
 
-        -- 3) Load data from olist_order_items_dataset.csv --
+        /* ----------------------------------------------------------------------------
+           Order Items
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.OrderItems'
         TRUNCATE TABLE bronze.OrderItems;
 
@@ -76,13 +103,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
 
-        -- 4) Load data from olist_order_payments_dataset.csv --
+        /* ----------------------------------------------------------------------------
+           Order Payments
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.OrderPayments'
         TRUNCATE TABLE bronze.OrderPayments;
 
@@ -97,13 +129,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
 
-        -- 5) Load data from olist_order_reviews_dataset.csv --
+        /* ----------------------------------------------------------------------------
+           Order Reviews
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.OrderReviews'
         TRUNCATE TABLE bronze.OrderReviews;
 
@@ -119,13 +156,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 6) Load data from olist_orders_dataset.csv --
+
+        /* ----------------------------------------------------------------------------
+           Orders
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.Orders'
         TRUNCATE TABLE bronze.Orders;
 
@@ -140,13 +182,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 7) Load data from olist_products_dataset.csv --
+
+        /* ----------------------------------------------------------------------------
+           Products
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.Products'
         TRUNCATE TABLE bronze.Products;
 
@@ -161,13 +208,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 8) Load data from olist_sellers_dataset.csv --
+
+        /* ----------------------------------------------------------------------------
+           Sellers
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.Sellers'
         TRUNCATE TABLE bronze.Sellers;
 
@@ -182,13 +234,18 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 9) Load data from product_category_name_translation.csv --
+
+        /* ----------------------------------------------------------------------------
+           Product Category Name Translation
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: bronze.ProductCategoryNameTranslation'
         TRUNCATE TABLE bronze.ProductCategoryNameTranslation;
 
@@ -203,22 +260,33 @@ BEGIN
             ROWTERMINATOR = '0x0a00',
             TABLOCK
         );
+
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
-        -- Commit transaction if all table loads succeed
+
+        /* ============================================================================
+           Commit Transaction
+        ============================================================================ */
+
         COMMIT TRANSACTION;
 
-        -- Calculate loading time for whole bronze layer --
         SET @EndTime = SYSDATETIME();
+
         PRINT 'Bronze Layer Load Duration: ' + CAST(DATEDIFF(second, @BatchStartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
+
     END TRY
-    -- Catch errors --
+
+
+    /* ============================================================================
+       Error Handling
+    ============================================================================ */
+
     BEGIN CATCH
-        -- Rollback changes in case of failure to maintain consistent Bronze state
+
         IF @@TRANCOUNT > 0 
             ROLLBACK TRANSACTION;
 
@@ -226,8 +294,8 @@ BEGIN
         PRINT CAST(ERROR_NUMBER() AS NVARCHAR) + ' - ' + ERROR_MESSAGE() + ' (State: ' + CAST(ERROR_STATE() AS NVARCHAR) + ')';
         PRINT '!!! !!! !!! !!! !!! !!! !!! !!! !!! !!! ';
 
-        -- Re-throw error to trigger exit code in Docker container / pipeline orchestrator
         THROW;
+
     END CATCH
 END;
 GO

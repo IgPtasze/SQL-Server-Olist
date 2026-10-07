@@ -1,8 +1,26 @@
+/*
+===============================================================================
+Silver Layer - Table Definitions
+===============================================================================
+Creates Silver layer tables used to store cleaned and standardized data.
+
+The Silver layer contains data transformed from the Bronze layer, including
+data type conversion, NULL handling and standardized column names.
+
+LoadTimestamp records the time when each row was loaded into the Silver layer.
+===============================================================================
+*/
+
 USE OlistDWH;
 GO
 
-DROP TABLE IF EXISTS silver.Customers
+/* ============================================================================
+   Customer Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.Customers;
 GO
+
 CREATE TABLE silver.Customers (
 	Id				NVARCHAR(50),
 	UniqueId		NVARCHAR(50),
@@ -13,8 +31,14 @@ CREATE TABLE silver.Customers (
 );
 GO
 
-DROP TABLE IF EXISTS silver.Geolocation
+
+/* ============================================================================
+   Geolocation Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.Geolocation;
 GO
+
 CREATE TABLE silver.Geolocation (
 	ZipCodePrefix	NVARCHAR(10),
 	Lat				DECIMAL(18,15),
@@ -25,8 +49,14 @@ CREATE TABLE silver.Geolocation (
 );
 GO
 
-DROP TABLE IF EXISTS silver.OrderItems
+
+/* ============================================================================
+   Order Item Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.OrderItems;
 GO
+
 CREATE TABLE silver.OrderItems (
 	OrderId				NVARCHAR(50),
 	OrderItemId			INT,
@@ -39,8 +69,14 @@ CREATE TABLE silver.OrderItems (
 );
 GO
 
-DROP TABLE IF EXISTS silver.OrderPayments
+
+/* ============================================================================
+   Order Payment Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.OrderPayments;
 GO
+
 CREATE TABLE silver.OrderPayments (
 	OrderId			NVARCHAR(50),
 	Sequential		INT,
@@ -51,8 +87,14 @@ CREATE TABLE silver.OrderPayments (
 );
 GO
 
-DROP TABLE IF EXISTS silver.OrderReviews
+
+/* ============================================================================
+   Order Review Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.OrderReviews;
 GO
+
 CREATE TABLE silver.OrderReviews (
 	ReviewId		NVARCHAR(50),
 	OrderId			NVARCHAR(50),
@@ -65,8 +107,14 @@ CREATE TABLE silver.OrderReviews (
 );
 GO
 
-DROP TABLE IF EXISTS silver.Orders
+
+/* ============================================================================
+   Order Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.Orders;
 GO
+
 CREATE TABLE silver.Orders (
 	Id						NVARCHAR(50),
 	CustomerId				NVARCHAR(50),
@@ -80,8 +128,14 @@ CREATE TABLE silver.Orders (
 );
 GO
 
-DROP TABLE IF EXISTS silver.Products
+
+/* ============================================================================
+   Product Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.Products;
 GO
+
 CREATE TABLE silver.Products (
 	Id					NVARCHAR(50),
 	CategoryName		NVARCHAR(60),
@@ -96,8 +150,14 @@ CREATE TABLE silver.Products (
 );
 GO
 
-DROP TABLE IF EXISTS silver.Sellers
+
+/* ============================================================================
+   Seller Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.Sellers;
 GO
+
 CREATE TABLE silver.Sellers (
 	Id				NVARCHAR(50),
 	ZipCodePrefix	NVARCHAR(10),
@@ -107,10 +167,16 @@ CREATE TABLE silver.Sellers (
 );
 GO
 
-DROP TABLE IF EXISTS silver.ProductCategoryNameTranslation
+
+/* ============================================================================
+   Product Category Name Translation Data
+============================================================================ */
+
+DROP TABLE IF EXISTS silver.ProductCategoryNameTranslation;
 GO
+
 CREATE TABLE silver.ProductCategoryNameTranslation (
-	CategoryName		NVARCHAR(60),
+	CategoryName			NVARCHAR(60),
 	CategoryNameEnglish	NVARCHAR(60),
 	LoadTimestamp		DATETIME2
 );

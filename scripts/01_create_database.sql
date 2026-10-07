@@ -1,5 +1,21 @@
+/*
+===============================================================================
+Database Initialization
+===============================================================================
+Creates the OlistDWH database and schemas used by the data warehouse layers:
+- bronze - raw data loaded from source files
+- silver - cleaned and standardized data
+- gold   - dimensional model for analysis
+===============================================================================
+*/
+
 USE master;
 GO
+
+
+/* ----------------------------------------------------------------------------
+   Create Database
+---------------------------------------------------------------------------- */
 
 IF DB_ID(N'OlistDWH') IS NULL
 BEGIN
@@ -9,6 +25,10 @@ GO
 
 USE OlistDWH;
 GO
+
+/* ----------------------------------------------------------------------------
+   Create Schemas
+---------------------------------------------------------------------------- */
 
 IF SCHEMA_ID(N'bronze') IS NULL
 BEGIN

@@ -1,7 +1,22 @@
+/*
+===============================================================================
+Bronze Layer - Table Definitions
+===============================================================================
+Creates Bronze layer tables used to store data loaded from source CSV files.
+
+Source values are stored as NVARCHAR to preserve the original data before
+type conversion and data cleansing in the Silver layer.
+===============================================================================
+*/
+
 USE OlistDWH;
 GO
 
-DROP TABLE IF EXISTS bronze.Customers
+/* ============================================================================
+   Customer Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.Customers;
 GO
 CREATE TABLE bronze.Customers (
 	Id				NVARCHAR(50),
@@ -12,7 +27,11 @@ CREATE TABLE bronze.Customers (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.Geolocation
+/* ============================================================================
+   Geolocation Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.Geolocation;
 GO
 CREATE TABLE bronze.Geolocation (
 	ZipCodePrefix	NVARCHAR(10),
@@ -23,7 +42,11 @@ CREATE TABLE bronze.Geolocation (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.OrderItems
+/* ============================================================================
+   Order Item Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.OrderItems;
 GO
 CREATE TABLE bronze.OrderItems (
 	OrderId				NVARCHAR(50),
@@ -36,7 +59,11 @@ CREATE TABLE bronze.OrderItems (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.OrderPayments
+/* ============================================================================
+   Order Payment Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.OrderPayments;
 GO
 CREATE TABLE bronze.OrderPayments (
 	OrderId			NVARCHAR(50),
@@ -47,7 +74,11 @@ CREATE TABLE bronze.OrderPayments (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.OrderReviews
+/* ============================================================================
+   Order Review Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.OrderReviews;
 GO
 CREATE TABLE bronze.OrderReviews (
 	ReviewId		NVARCHAR(50),
@@ -60,7 +91,11 @@ CREATE TABLE bronze.OrderReviews (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.Orders
+/* ============================================================================
+   Order Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.Orders;
 GO
 CREATE TABLE bronze.Orders (
 	Id						NVARCHAR(50),
@@ -74,7 +109,11 @@ CREATE TABLE bronze.Orders (
 );
 GO
 
-DROP TABLE IF EXISTS bronze.Products
+/* ============================================================================
+   Product Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.Products;
 GO
 CREATE TABLE bronze.Products (
 Id					NVARCHAR(50),
@@ -89,7 +128,11 @@ WidthCm				NVARCHAR(10)
 );
 GO
 
-DROP TABLE IF EXISTS bronze.Sellers
+/* ============================================================================
+   Seller Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.Sellers;
 GO
 CREATE TABLE bronze.Sellers (
 Id				NVARCHAR(50),
@@ -99,7 +142,12 @@ State			NVARCHAR(5)
 );
 GO
 
-DROP TABLE IF EXISTS bronze.ProductCategoryNameTranslation
+
+/* ============================================================================
+   Product Category Translation Data
+============================================================================ */
+
+DROP TABLE IF EXISTS bronze.ProductCategoryNameTranslation;
 GO
 CREATE TABLE bronze.ProductCategoryNameTranslation (
 CategoryName		NVARCHAR(60),

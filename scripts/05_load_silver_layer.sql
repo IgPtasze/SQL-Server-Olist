@@ -2,7 +2,16 @@
 ===============================================================================
 Stored Procedure: Load Data Into Silver Layer (Cleansed & Conformed)
 ===============================================================================
+Loads and transforms data from the Bronze layer into the Silver layer.
+
+The Silver layer contains cleaned and standardized data, including data type
+conversion, whitespace and line break removal, NULL handling and selected
+data quality corrections.
+
+LoadTimestamp records the time when each row is loaded into the Silver layer.
+===============================================================================
 */
+
 USE OlistDWH;
 GO
 
@@ -13,13 +22,21 @@ BEGIN
     BEGIN TRY
         SET @BatchStartTime = SYSDATETIME();
 
-        -- Wrap in an atomic transaction for pipeline failure safety (Docker execution)
+        /* ============================================================================
+           Load Silver Layer
+        ============================================================================ */
+
         BEGIN TRANSACTION;
 
         PRINT 'Loading Data Into Silver Layer:';
 
-        -- 1) Load data from bronze.Customers --
+
+        /* ----------------------------------------------------------------------------
+           Customers
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.Customers';
         TRUNCATE TABLE silver.Customers;
     
@@ -46,8 +63,12 @@ BEGIN
         PRINT '                    ';
 
 
-        -- 2) Load data from bronze.Geolocation --
+        /* ----------------------------------------------------------------------------
+           Geolocation
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.Geolocation';
         TRUNCATE TABLE silver.Geolocation;
 
@@ -74,8 +95,12 @@ BEGIN
         PRINT '                         ';
 
 
-        -- 3) Load data from bronze.OrderItems --
+        /* ----------------------------------------------------------------------------
+           Order Items
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.OrderItems';
         TRUNCATE TABLE silver.OrderItems;
 
@@ -94,8 +119,14 @@ BEGIN
             NULLIF(TRIM(OrderId), ''),
             TRY_CONVERT(INT, NULLIF(TRIM(OrderItemId), '')),
             NULLIF(TRIM(ProductId), ''),
-            -- DATA QUALITY NOTE: Contains 3 orphan SellerIds missing from bronze.Sellers (olist_sellers_dataset).
-            -- Retained in Silver to preserve order metrics; handled via an 'Unknown Member' (-1) in the Gold dimensional model.
+            /*
+            DATA QUALITY NOTE:
+            Contains 3 orphan SellerIds missing from bronze.Sellers
+            (olist_sellers_dataset).
+
+            Retained in Silver to preserve order metrics; handled via an
+            'Unknown Member' (-1) in the Gold dimensional model.
+            */
             NULLIF(TRIM(SellerId), ''),
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(ShippingLimitDate), '')),
             TRY_CONVERT(DECIMAL(10,2), NULLIF(TRIM(Price), '')),
@@ -111,8 +142,12 @@ BEGIN
         PRINT '                         ';
 
 
-        -- 4) Load data from bronze.OrderPayments --
+        /* ----------------------------------------------------------------------------
+           Order Payments
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.OrderPayments';
         TRUNCATE TABLE silver.OrderPayments;
 
@@ -129,8 +164,13 @@ BEGIN
             NULLIF(TRIM(OrderId), ''),
             TRY_CONVERT(INT, NULLIF(TRIM(Sequential), '')),
             NULLIF(TRIM(Type), ''),
-            -- DATA QUALITY FIX: Handle 2 records with 0 installments.
-            -- Map 0 installments to 1 (single-lump payment) to prevent division-by-zero errors in downstream financial metrics.
+            /*
+            DATA QUALITY FIX:
+            Handle 2 records with 0 installments.
+
+            Map 0 installments to 1 (single-lump payment) to prevent
+            division-by-zero errors in downstream financial metrics.
+            */
             CASE 
                 WHEN TRY_CONVERT(INT, NULLIF(TRIM(Installments), '')) < 1 THEN 1 
                 ELSE TRY_CONVERT(INT, NULLIF(TRIM(Installments), '')) 
@@ -147,8 +187,12 @@ BEGIN
         PRINT '                         ';
 
 
-        -- 5) Load data from bronze.OrderReviews --
+        /* ----------------------------------------------------------------------------
+           Order Reviews
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.OrderReviews';
         TRUNCATE TABLE silver.OrderReviews;
 
@@ -180,10 +224,14 @@ BEGIN
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 6) Load data from bronze.Orders --
+
+        /* ----------------------------------------------------------------------------
+           Orders
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.Orders';
         TRUNCATE TABLE silver.Orders;
 
@@ -205,10 +253,17 @@ BEGIN
             NULLIF(TRIM(Status), ''),
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')),
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(ApprovedAt), '')),
-            -- DATA QUALITY FIX: Handle 166 records where carrier pickup predated purchase timestamp.
-            -- Set invalid chronological carrier dates to NULL to preserve order entity integrity without distorting logistics KPIs.
+            /*
+            DATA QUALITY FIX:
+            Handle 166 records where carrier pickup predated purchase timestamp.
+
+            Set invalid chronological carrier dates to NULL to preserve order
+            entity integrity without distorting logistics KPIs.
+            */
             CASE 
-                WHEN TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) < TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')) THEN NULL 
+                WHEN TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) 
+                     < TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')) 
+                THEN NULL 
                 ELSE TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) 
             END,
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCustomerDate), '')),
@@ -222,10 +277,14 @@ BEGIN
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 7) Load data from bronze.Products --
+
+        /* ----------------------------------------------------------------------------
+           Products
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.Products';
         TRUNCATE TABLE silver.Products;
 
@@ -261,10 +320,14 @@ BEGIN
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 8) Load data from bronze.Sellers --
+
+        /* ----------------------------------------------------------------------------
+           Sellers
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.Sellers';
         TRUNCATE TABLE silver.Sellers;
 
@@ -287,10 +350,14 @@ BEGIN
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
-        
 
-        -- 9) Load data from bronze.ProductCategoryNameTranslation --
+
+        /* ----------------------------------------------------------------------------
+           Product Category Name Translation
+        ---------------------------------------------------------------------------- */
+
         SET @StartTime = SYSDATETIME();
+
         PRINT '    Truncating Table: silver.ProductCategoryNameTranslation';
         TRUNCATE TABLE silver.ProductCategoryNameTranslation;
 
@@ -313,25 +380,36 @@ BEGIN
         PRINT '    Table Load Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
-        -- Commit transaction if all table loads succeed
+
+        /* ============================================================================
+           Commit Transaction
+        ============================================================================ */
+
         COMMIT TRANSACTION;
 
-        -- Calculate overall loading duration for the Silver layer
         SET @EndTime = SYSDATETIME();
+
         PRINT 'Silver Layer Load Duration: ' + CAST(DATEDIFF(second, @BatchStartTime, @EndTime) AS NVARCHAR) + ' seconds';
         PRINT '                         ';
 
+
     END TRY
+
+
+    /* ============================================================================
+       Error Handling
+    ============================================================================ */
+
     BEGIN CATCH
-        -- Rollback changes in case of failure to maintain consistent Silver state
+
         IF @@TRANCOUNT > 0 
             ROLLBACK TRANSACTION;
 
         PRINT '!!! ERROR OCCURRED DURING LOADING DATA !!!';
         PRINT CAST(ERROR_NUMBER() AS NVARCHAR) + ' - ' + ERROR_MESSAGE();
         
-        -- Re-throw error to trigger exit code in Docker container
         THROW;
+
     END CATCH
 END;
 GO
