@@ -4,6 +4,12 @@ Data engineering portfolio project based on the **Brazilian E-Commerce Public Da
 
 The project focuses on building a data warehouse in **Microsoft SQL Server**, with the data pipeline and database environment containerized using Docker.
 
+## Source data
+
+The project uses the **Brazilian E-Commerce Public Dataset by Olist**, containing information about orders, customers, products, sellers, payments, reviews and related entities.
+
+The dataset is used as the source for building the data warehouse and developing business-oriented analytical questions in later stages.
+
 ## Project status
 
 Current stage:
@@ -11,7 +17,7 @@ Current stage:
 * [x] Docker environment
 * [x] Data preprocessing
 * [x] Bronze layer
-* [ ] Silver layer
+* [x] Silver layer
 * [ ] Gold layer
 * [ ] Business-oriented analytical queries
 
@@ -38,7 +44,7 @@ Preprocessing
 Business Analysis
 ```
 
-The current implementation covers the **preprocessing and Bronze layer**.
+The current implementation covers the **preprocessing, Bronze and Silver layers**.
 
 ## Technologies
 
@@ -93,9 +99,67 @@ The procedure:
 1. clears the target Bronze tables,
 2. loads the prepared CSV files using `BULK INSERT`,
 3. loads the data using SQL Server's Unicode/wide-character support,
-4. records the execution time of the load.
+4. performs the load within a transaction,
+5. records the execution time of the load.
 
-This provides a repeatable way of rebuilding the Bronze layer from the prepared source files.
+Using a transaction ensures that the Bronze layer is not left in a partially loaded state if an error occurs during the loading process.
+
+This provides a repeatable way of rebuilding the Bronze layer from the converted source files.
+
+## Silver layer
+
+The Silver layer is responsible for cleaning, transforming and validating the data loaded into the Bronze layer.
+
+The main goals of this layer are:
+
+* converting source values to appropriate SQL Server data types,
+* handling empty values and `NULL`s,
+* trimming text values,
+* cleaning problematic characters from source values,
+* preparing the data for further transformation in the Gold layer,
+* validating the quality of the loaded data.
+
+The Silver layer uses a dedicated `silver` schema.
+
+Tables in the Silver layer use more appropriate data types than the Bronze layer. For example, numeric values are converted to `INT` or `DECIMAL`, date and time values are converted to `DATETIME2`, and text fields use appropriate `NVARCHAR` lengths.
+
+### Data loading
+
+Data is loaded into Silver using the `silver.LoadData` stored procedure.
+
+The procedure:
+
+1. clears the target Silver tables,
+2. reads data from the Bronze layer,
+3. cleans and transforms source values,
+4. converts values to the appropriate data types,
+5. handles empty values and `NULL`s,
+6. adds a `LoadTimestamp` to loaded records.
+
+The `LoadTimestamp` is generated during the load using `SYSDATETIME()` and provides information about when the data was loaded into the Silver layer.
+
+### Data validation
+
+The Silver layer includes a dedicated `silver.ValidateData` stored procedure used to verify the quality of the transformed data.
+
+The validation includes:
+
+* **row count checks** between Bronze and Silver,
+* **required field `NULL` checks**,
+* **value range checks** (e.g., non-negative prices, valid review scores),
+* **date consistency checks** (chronological timestamp integrity),
+* **referential integrity checks** (orphan foreign key identification),
+* **duplicate primary key checks** (single and composite primary key uniqueness),
+* **audit field checks** (`LoadTimestamp` verification).
+
+The validation procedure is executed after the Silver load to identify unexpected issues introduced during the transformation process before the data is used in the Gold layer.
+
+### Key data quality fixes in Silver
+
+During the Silver load, specific source data anomalies are handled deterministically:
+* **Invalid carrier dates:** 166 records with carrier pickup dates earlier than purchase timestamps are converted to `NULL` to preserve order data without distorting logistics KPIs.
+* **Zero installments:** Payment records with `0` installments are mapped to `1` (single-lump payment) to prevent division-by-zero errors in downstream calculations.
+* **Orphan sellers:** 3 seller references in order items missing from the seller directory are retained in Silver and will be mapped to an **Unknown Member (`-1`)** in the Gold dimensional schema.
 
 ## Running the project
 
@@ -139,6 +203,12 @@ Connect to the SQL Server instance and execute the database, schema and Bronze l
 
 The Bronze layer can then be rebuilt from the prepared source files.
 
+### 6. Load and validate Silver
+
+After the Bronze layer has been loaded, execute the Silver layer scripts and run the `silver.LoadData` procedure.
+
+After the Silver load is completed, run `silver.ValidateData` to verify the row counts, conversions, required fields, value ranges and date consistency.
+
 ## Project structure
 
 ```text
@@ -158,8 +228,76 @@ SQL-Server-Olist/
 └── README.md
 ```
 
-## Source data
+## Gold Layer - Dimensional Model
 
-The project uses the **Brazilian E-Commerce Public Dataset by Olist**, containing information about orders, customers, products, sellers, payments, reviews and related entities.
+The Gold layer is designed according to **Kimball dimensional modeling principles**, with the goal of creating a business-oriented analytical model rather than simply exposing the structure of the source data.
 
-The dataset is used as the source for building the data warehouse and developing business-oriented analytical questions in later stages.
+The model was designed by first identifying the **business processes and the grain of each fact table**, and then selecting the dimensions and measures required to support analytical use cases.
+
+### Business Processes
+
+The Gold layer covers four main business processes:
+
+1. **Orders & Fulfillment** - tracking orders and their delivery lifecycle.
+2. **Sales** - analyzing individual items purchased within orders.
+3. **Payments** - analyzing payment methods, values and installments.
+4. **Reviews** - analyzing customer reviews and review scores.
+
+### Fact Tables
+
+Each fact table has a clearly defined grain:
+
+| Fact Table            | Grain                  |
+| --------------------- | ---------------------- |
+| `fact_orders`         | One row per order      |
+| `fact_order_items`    | One row per order item |
+| `fact_order_payments` | One row per payment    |
+| `fact_order_reviews`  | One row per review     |
+
+This grain definition determines which dimensions and measures can be correctly associated with each fact.
+
+### Dimension Tables
+
+The model contains four conformed dimensions:
+
+* `dim_customer` - customer information and location.
+* `dim_product` - product attributes and category information.
+* `dim_seller` - seller information and location.
+* `dim_date` - calendar attributes used by the fact tables.
+
+The `dim_date` dimension is used as a **role-playing dimension**, allowing different dates from the same fact table to be analyzed independently, for example purchase date, approval date, carrier date and delivery date.
+
+### Surrogate Keys
+
+Dimensions use **surrogate keys** as their primary keys. Source-system identifiers are retained as business keys where appropriate.
+
+This separates the analytical model from source-system identifiers and provides a more robust foundation for future changes to source data or the ETL process.
+
+### Slowly Changing Dimensions
+
+The dimensions use a **Type 1 Slowly Changing Dimension (SCD)** approach.
+
+Historical attribute changes are not tracked because the Olist dataset represents a static historical dataset and does not provide a meaningful stream of dimension changes over time.
+
+### Business-Oriented Gold Layer
+
+The Gold layer does not reproduce every column from the Silver layer. Columns were selected based on their analytical or business value.
+
+For example, product attributes such as `NameLength` and `DescriptionLength` were excluded because they do not provide a sufficiently meaningful business use case for this project.
+
+The Gold layer also contains selected **derived business attributes**, such as:
+
+* delivery and processing durations,
+* delivery status indicators,
+* late-delivery indicators,
+* additive count measures.
+
+These attributes are calculated during the Gold transformation rather than copied directly from the source.
+
+### Data Relationships
+
+Fact tables are connected to dimensions through surrogate keys. Fact tables are not directly linked to one another.
+
+`OrderId` is retained in the relevant fact tables as a business identifier, allowing the same order to be analyzed across different business processes without introducing fact-to-fact dependencies.
+
+The review fact does not contain a product key because a review is associated with an order rather than with a uniquely identifiable product. An order may contain multiple products, so assigning a review directly to a product would introduce an incorrect relationship.
