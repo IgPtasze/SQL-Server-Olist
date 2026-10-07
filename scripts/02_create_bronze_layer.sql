@@ -19,11 +19,11 @@ GO
 DROP TABLE IF EXISTS bronze.Customers;
 GO
 CREATE TABLE bronze.Customers (
-	Id				NVARCHAR(50),
-	UniqueId		NVARCHAR(50),
-	ZipCodePrefix	NVARCHAR(10),
-	City			NVARCHAR(50),
-	State			NVARCHAR(5)
+	CustomerId				NVARCHAR(50),
+	CustomerUniqueId		NVARCHAR(50),
+	CustomerZipCodePrefix	NVARCHAR(10),
+	CustomerCity			NVARCHAR(50),
+	CustomerState			NVARCHAR(5)
 );
 GO
 
@@ -34,11 +34,11 @@ GO
 DROP TABLE IF EXISTS bronze.Geolocation;
 GO
 CREATE TABLE bronze.Geolocation (
-	ZipCodePrefix	NVARCHAR(10),
-	Lat				NVARCHAR(30),
-	Lng				NVARCHAR(30),
-	City			NVARCHAR(50),
-	State			NVARCHAR(5)
+	GeolocationZipCodePrefix	NVARCHAR(10),
+	GeolocationLat				NVARCHAR(30),
+	GeolocationLng				NVARCHAR(30),
+	GeolocationCity				NVARCHAR(50),
+	GeolocationState			NVARCHAR(5)
 );
 GO
 
@@ -66,11 +66,11 @@ GO
 DROP TABLE IF EXISTS bronze.OrderPayments;
 GO
 CREATE TABLE bronze.OrderPayments (
-	OrderId			NVARCHAR(50),
-	Sequential		NVARCHAR(5),
-	Type			NVARCHAR(20),
-	Installments	NVARCHAR(5),
-	Value			NVARCHAR(20)
+	OrderId				NVARCHAR(50),
+	PaymentSequential	NVARCHAR(5),
+	PaymentType			NVARCHAR(20),
+	PaymentInstallments	NVARCHAR(5),
+	PaymentValue		NVARCHAR(20)
 );
 GO
 
@@ -81,13 +81,13 @@ GO
 DROP TABLE IF EXISTS bronze.OrderReviews;
 GO
 CREATE TABLE bronze.OrderReviews (
-	ReviewId		NVARCHAR(50),
-	OrderId			NVARCHAR(50),
-	Score			NVARCHAR(5),
-	CommentTitle	NVARCHAR(50),
-	CommentMessage	NVARCHAR(500),
-	CreationDate	NVARCHAR(20),
-	AnswerTimestamp	NVARCHAR(20)
+	ReviewId				NVARCHAR(50),
+	OrderId					NVARCHAR(50),
+	ReviewScore				NVARCHAR(5),
+	ReviewCommentTitle		NVARCHAR(50),
+	ReviewCommentMessage	NVARCHAR(500),
+	ReviewCreationDate		NVARCHAR(20),
+	ReviewAnswerTimestamp	NVARCHAR(20)
 );
 GO
 
@@ -98,14 +98,14 @@ GO
 DROP TABLE IF EXISTS bronze.Orders;
 GO
 CREATE TABLE bronze.Orders (
-	Id						NVARCHAR(50),
-	CustomerId				NVARCHAR(50),
-	Status					NVARCHAR(20),
-	PurchaseTimestamp		NVARCHAR(20),
-	ApprovedAt				NVARCHAR(20),
-	DeliveredCarrierDate	NVARCHAR(20),
-	DeliveredCustomerDate	NVARCHAR(20),
-	EstimatedDeliveryDate	NVARCHAR(20)
+	OrderId						NVARCHAR(50),
+	CustomerId					NVARCHAR(50),
+	OrderStatus					NVARCHAR(20),
+	OrderPurchaseTimestamp		NVARCHAR(20),
+	OrderApprovedAt				NVARCHAR(20),
+	OrderDeliveredCarrierDate	NVARCHAR(20),
+	OrderDeliveredCustomerDate	NVARCHAR(20),
+	OrderEstimatedDeliveryDate	NVARCHAR(20)
 );
 GO
 
@@ -116,15 +116,15 @@ GO
 DROP TABLE IF EXISTS bronze.Products;
 GO
 CREATE TABLE bronze.Products (
-Id					NVARCHAR(50),
-CategoryName		NVARCHAR(60),
-NameLenght			NVARCHAR(5),
-DescriptionLength	NVARCHAR(10),
-PhotosQty			NVARCHAR(5),
-WeightG				NVARCHAR(10),
-LengthCm			NVARCHAR(10),
-HeightCm			NVARCHAR(10),
-WidthCm				NVARCHAR(10)
+	ProductId					NVARCHAR(50),
+	ProductCategoryName			NVARCHAR(60),
+	ProductNameLenght			NVARCHAR(5),
+	ProductDescriptionLenght	NVARCHAR(10),
+	ProductPhotosQty			NVARCHAR(5),
+	ProductWeightG				NVARCHAR(10),
+	ProductLengthCm				NVARCHAR(10),
+	ProductHeightCm				NVARCHAR(10),
+	ProductWidthCm				NVARCHAR(10)
 );
 GO
 
@@ -135,10 +135,10 @@ GO
 DROP TABLE IF EXISTS bronze.Sellers;
 GO
 CREATE TABLE bronze.Sellers (
-Id				NVARCHAR(50),
-ZipCodePrefix	NVARCHAR(10),
-City			NVARCHAR(50),
-State			NVARCHAR(5)
+	SellerId				NVARCHAR(50),
+	SellerZipCodePrefix		NVARCHAR(10),
+	SellerCity				NVARCHAR(50),
+	SellerState				NVARCHAR(5)
 );
 GO
 
@@ -150,7 +150,7 @@ GO
 DROP TABLE IF EXISTS bronze.ProductCategoryNameTranslation;
 GO
 CREATE TABLE bronze.ProductCategoryNameTranslation (
-CategoryName		NVARCHAR(60),
-CategoryNameEnglish	NVARCHAR(60) 
+	ProductCategoryName			NVARCHAR(60),
+	ProductCategoryNameEnglish	NVARCHAR(60) 
 );
 GO

@@ -126,13 +126,13 @@ BEGIN
     FROM bronze.Geolocation
     WHERE
         (
-            NULLIF(TRIM(Lat), '') IS NOT NULL
-            AND TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(Lat), '')) IS NULL
+            NULLIF(TRIM(GeolocationLat), '') IS NOT NULL
+            AND TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(GeolocationLat), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(Lng), '') IS NOT NULL
-            AND TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(Lng), '')) IS NULL
+            NULLIF(TRIM(GeolocationLng), '') IS NOT NULL
+            AND TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(GeolocationLng), '')) IS NULL
         )
 
     UNION ALL
@@ -185,24 +185,24 @@ BEGIN
     FROM bronze.OrderPayments
     WHERE
         (
-            NULLIF(TRIM(Sequential), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(Sequential), '')) IS NULL
+            NULLIF(TRIM(PaymentSequential), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(PaymentSequential), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(Installments), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(Installments), '')) IS NULL
+            NULLIF(TRIM(PaymentInstallments), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(PaymentInstallments), '')) IS NULL
         )
         OR
         (
             NULLIF(
-                REPLACE(REPLACE(TRIM(Value), CHAR(13), ''), CHAR(10), ''),
+                REPLACE(REPLACE(TRIM(PaymentValue), CHAR(13), ''), CHAR(10), ''),
                 ''
             ) IS NOT NULL
             AND TRY_CONVERT(
                 DECIMAL(10,2),
                 NULLIF(
-                    REPLACE(REPLACE(TRIM(Value), CHAR(13), ''), CHAR(10), ''),
+                    REPLACE(REPLACE(TRIM(PaymentValue), CHAR(13), ''), CHAR(10), ''),
                     ''
                 )
             ) IS NULL
@@ -219,24 +219,24 @@ BEGIN
     FROM bronze.OrderReviews
     WHERE
         (
-            NULLIF(TRIM(Score), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(Score), '')) IS NULL
+            NULLIF(TRIM(ReviewScore), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ReviewScore), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(CreationDate), '') IS NOT NULL
-            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(CreationDate), '')) IS NULL
+            NULLIF(TRIM(ReviewCreationDate), '') IS NOT NULL
+            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(ReviewCreationDate), '')) IS NULL
         )
         OR
         (
             NULLIF(
-                REPLACE(REPLACE(TRIM(AnswerTimestamp), CHAR(13), ''), CHAR(10), ''),
+                REPLACE(REPLACE(TRIM(ReviewAnswerTimestamp), CHAR(13), ''), CHAR(10), ''),
                 ''
             ) IS NOT NULL
             AND TRY_CONVERT(
                 DATETIME2,
                 NULLIF(
-                    REPLACE(REPLACE(TRIM(AnswerTimestamp), CHAR(13), ''), CHAR(10), ''),
+                    REPLACE(REPLACE(TRIM(ReviewAnswerTimestamp), CHAR(13), ''), CHAR(10), ''),
                     ''
                 )
             ) IS NULL
@@ -253,34 +253,34 @@ BEGIN
     FROM bronze.Orders
     WHERE
         (
-            NULLIF(TRIM(PurchaseTimestamp), '') IS NOT NULL
-            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')) IS NULL
+            NULLIF(TRIM(OrderPurchaseTimestamp), '') IS NOT NULL
+            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderPurchaseTimestamp), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(ApprovedAt), '') IS NOT NULL
-            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(ApprovedAt), '')) IS NULL
+            NULLIF(TRIM(OrderApprovedAt), '') IS NOT NULL
+            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderApprovedAt), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(DeliveredCarrierDate), '') IS NOT NULL
-            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) IS NULL
+            NULLIF(TRIM(OrderDeliveredCarrierDate), '') IS NOT NULL
+            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(DeliveredCustomerDate), '') IS NOT NULL
-            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCustomerDate), '')) IS NULL
+            NULLIF(TRIM(OrderDeliveredCustomerDate), '') IS NOT NULL
+            AND TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCustomerDate), '')) IS NULL
         )
         OR
         (
             NULLIF(
-                REPLACE(REPLACE(TRIM(EstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''),
+                REPLACE(REPLACE(TRIM(OrderEstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''),
                 ''
             ) IS NOT NULL
             AND TRY_CONVERT(
                 DATETIME2,
                 NULLIF(
-                    REPLACE(REPLACE(TRIM(EstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''),
+                    REPLACE(REPLACE(TRIM(OrderEstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''),
                     ''
                 )
             ) IS NULL
@@ -297,44 +297,44 @@ BEGIN
     FROM bronze.Products
     WHERE
         (
-            NULLIF(TRIM(NameLenght), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(NameLenght), '')) IS NULL
+            NULLIF(TRIM(ProductNameLenght), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductNameLenght), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(DescriptionLength), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(DescriptionLength), '')) IS NULL
+            NULLIF(TRIM(ProductDescriptionLenght), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductDescriptionLenght), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(PhotosQty), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(PhotosQty), '')) IS NULL
+            NULLIF(TRIM(ProductPhotosQty), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductPhotosQty), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(WeightG), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(WeightG), '')) IS NULL
+            NULLIF(TRIM(ProductWeightG), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductWeightG), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(LengthCm), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(LengthCm), '')) IS NULL
+            NULLIF(TRIM(ProductLengthCm), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductLengthCm), '')) IS NULL
         )
         OR
         (
-            NULLIF(TRIM(HeightCm), '') IS NOT NULL
-            AND TRY_CONVERT(INT, NULLIF(TRIM(HeightCm), '')) IS NULL
+            NULLIF(TRIM(ProductHeightCm), '') IS NOT NULL
+            AND TRY_CONVERT(INT, NULLIF(TRIM(ProductHeightCm), '')) IS NULL
         )
         OR
         (
             NULLIF(
-                REPLACE(REPLACE(TRIM(WidthCm), CHAR(13), ''), CHAR(10), ''),
+                REPLACE(REPLACE(TRIM(ProductWidthCm), CHAR(13), ''), CHAR(10), ''),
                 ''
             ) IS NOT NULL
             AND TRY_CONVERT(
                 INT,
                 NULLIF(
-                    REPLACE(REPLACE(TRIM(WidthCm), CHAR(13), ''), CHAR(10), ''),
+                    REPLACE(REPLACE(TRIM(ProductWidthCm), CHAR(13), ''), CHAR(10), ''),
                     ''
                 )
             ) IS NULL
@@ -354,11 +354,11 @@ BEGIN
         COUNT(*) AS IssueCount,
         'NULL values in required fields' AS Details
     FROM silver.Customers
-    WHERE Id IS NULL
-       OR UniqueId IS NULL
-       OR ZipCodePrefix IS NULL
-       OR City IS NULL
-       OR State IS NULL
+    WHERE CustomerId IS NULL
+       OR CustomerUniqueId IS NULL
+       OR CustomerZipCodePrefix IS NULL
+       OR CustomerCity IS NULL
+       OR CustomerState IS NULL
 
     UNION ALL
 
@@ -369,11 +369,11 @@ BEGIN
         COUNT(*),
         'NULL values in required fields'
     FROM silver.Geolocation
-    WHERE ZipCodePrefix IS NULL
-       OR Lat IS NULL
-       OR Lng IS NULL
-       OR City IS NULL
-       OR State IS NULL
+    WHERE GeolocationZipCodePrefix IS NULL
+       OR GeolocationLat IS NULL
+       OR GeolocationLng IS NULL
+       OR GeolocationCity IS NULL
+       OR GeolocationState IS NULL
 
     UNION ALL
 
@@ -401,9 +401,9 @@ BEGIN
         'NULL values in required fields'
     FROM silver.OrderPayments
     WHERE OrderId IS NULL
-       OR Sequential IS NULL
-       OR Type IS NULL
-       OR Value IS NULL
+       OR PaymentSequential IS NULL
+       OR PaymentType IS NULL
+       OR PaymentValue IS NULL
 
     UNION ALL
 
@@ -416,7 +416,7 @@ BEGIN
     FROM silver.OrderReviews
     WHERE ReviewId IS NULL
        OR OrderId IS NULL
-       OR Score IS NULL
+       OR ReviewScore IS NULL
 
     UNION ALL
 
@@ -427,10 +427,10 @@ BEGIN
         COUNT(*),
         'NULL values in required fields'
     FROM silver.Orders
-    WHERE Id IS NULL
+    WHERE OrderId IS NULL
        OR CustomerId IS NULL
-       OR Status IS NULL
-       OR PurchaseTimestamp IS NULL
+       OR OrderStatus IS NULL
+       OR OrderPurchaseTimestamp IS NULL
 
     UNION ALL
 
@@ -441,7 +441,7 @@ BEGIN
         COUNT(*),
         'NULL values in required fields'
     FROM silver.Products
-    WHERE Id IS NULL
+    WHERE ProductId IS NULL
 
     UNION ALL
 
@@ -452,10 +452,10 @@ BEGIN
         COUNT(*),
         'NULL values in required fields'
     FROM silver.Sellers
-    WHERE Id IS NULL
-       OR ZipCodePrefix IS NULL
-       OR City IS NULL
-       OR State IS NULL
+    WHERE SellerId IS NULL
+       OR SellerZipCodePrefix IS NULL
+       OR SellerCity IS NULL
+       OR SellerState IS NULL
 
     UNION ALL
 
@@ -466,8 +466,8 @@ BEGIN
         COUNT(*),
         'NULL values in required fields'
     FROM silver.ProductCategoryNameTranslation
-    WHERE CategoryName IS NULL
-       OR CategoryNameEnglish IS NULL
+    WHERE ProductCategoryName IS NULL
+       OR ProductCategoryNameEnglish IS NULL
 
 
     /* ============================================================================
@@ -495,8 +495,8 @@ BEGIN
         COUNT(*),
         'Invalid Installments/Value'
     FROM silver.OrderPayments
-    WHERE Installments < 1
-       OR Value < 0
+    WHERE PaymentInstallments < 1
+       OR PaymentValue < 0
 
     UNION ALL
 
@@ -507,8 +507,8 @@ BEGIN
         COUNT(*),
         'Score outside range 1-5'
     FROM silver.OrderReviews
-    WHERE Score < 1
-       OR Score > 5
+    WHERE ReviewScore < 1
+       OR ReviewScore > 5
 
     UNION ALL
 
@@ -519,10 +519,10 @@ BEGIN
         COUNT(*),
         'Invalid product dimensions'
     FROM silver.Products
-    WHERE WeightG < 0
-       OR LengthCm < 0
-       OR HeightCm < 0
-       OR WidthCm < 0
+    WHERE ProductWeightG < 0
+       OR ProductLengthCm < 0
+       OR ProductHeightCm < 0
+       OR ProductWidthCm < 0
 
 
     /* ============================================================================
@@ -538,8 +538,8 @@ BEGIN
         COUNT(*) AS IssueCount,
         'Delivered date before purchase date' AS Details
     FROM silver.Orders
-    WHERE DeliveredCarrierDate < PurchaseTimestamp
-       OR DeliveredCustomerDate < PurchaseTimestamp
+    WHERE OrderDeliveredCarrierDate < OrderPurchaseTimestamp
+       OR OrderDeliveredCustomerDate < OrderPurchaseTimestamp
 
 
     /* ============================================================================
@@ -555,8 +555,8 @@ BEGIN
         COUNT(*) AS IssueCount,
         'Orders referencing non-existent CustomerId' AS Details
     FROM silver.Orders o
-    LEFT JOIN silver.Customers c ON o.CustomerId = c.Id
-    WHERE o.CustomerId IS NOT NULL AND c.Id IS NULL
+    LEFT JOIN silver.Customers c ON o.CustomerId = c.CustomerId
+    WHERE o.CustomerId IS NOT NULL AND c.CustomerId IS NULL
 
     UNION ALL
 
@@ -567,8 +567,8 @@ BEGIN
         COUNT(*),
         'OrderItems referencing non-existent OrderId'
     FROM silver.OrderItems oi
-    LEFT JOIN silver.Orders o ON oi.OrderId = o.Id
-    WHERE oi.OrderId IS NOT NULL AND o.Id IS NULL
+    LEFT JOIN silver.Orders o ON oi.OrderId = o.OrderId
+    WHERE oi.OrderId IS NOT NULL AND o.OrderId IS NULL
 
     UNION ALL
 
@@ -579,8 +579,8 @@ BEGIN
         COUNT(*),
         'OrderItems referencing non-existent ProductId'
     FROM silver.OrderItems oi
-    LEFT JOIN silver.Products p ON oi.ProductId = p.Id
-    WHERE oi.ProductId IS NOT NULL AND p.Id IS NULL
+    LEFT JOIN silver.Products p ON oi.ProductId = p.ProductId
+    WHERE oi.ProductId IS NOT NULL AND p.ProductId IS NULL
 
     UNION ALL
 
@@ -591,8 +591,8 @@ BEGIN
         COUNT(*),
         'OrderItems referencing non-existent SellerId'
     FROM silver.OrderItems oi
-    LEFT JOIN silver.Sellers s ON oi.SellerId = s.Id
-    WHERE oi.SellerId IS NOT NULL AND s.Id IS NULL
+    LEFT JOIN silver.Sellers s ON oi.SellerId = s.SellerId
+    WHERE oi.SellerId IS NOT NULL AND s.SellerId IS NULL
 
     UNION ALL
 
@@ -603,8 +603,8 @@ BEGIN
         COUNT(*),
         'OrderPayments referencing non-existent OrderId'
     FROM silver.OrderPayments op
-    LEFT JOIN silver.Orders o ON op.OrderId = o.Id
-    WHERE op.OrderId IS NOT NULL AND o.Id IS NULL
+    LEFT JOIN silver.Orders o ON op.OrderId = o.OrderId
+    WHERE op.OrderId IS NOT NULL AND o.OrderId IS NULL
 
     UNION ALL
 
@@ -615,8 +615,8 @@ BEGIN
         COUNT(*),
         'OrderReviews referencing non-existent OrderId'
     FROM silver.OrderReviews ORv
-    LEFT JOIN silver.Orders o ON ORv.OrderId = o.Id
-    WHERE ORv.OrderId IS NOT NULL AND o.Id IS NULL
+    LEFT JOIN silver.Orders o ON ORv.OrderId = o.OrderId
+    WHERE ORv.OrderId IS NOT NULL AND o.OrderId IS NULL
 
 
     /* ============================================================================
@@ -630,11 +630,11 @@ BEGIN
         'Customers' AS TableName,
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS Status,
         ISNULL(SUM(dup_count - 1), 0) AS IssueCount,
-        'Duplicate Id values in Customers' AS Details
+        'Duplicate CustomerId values in Customers' AS Details
     FROM (
-        SELECT Id, COUNT(*) AS dup_count 
+        SELECT CustomerId, COUNT(*) AS dup_count 
         FROM silver.Customers
-        GROUP BY Id 
+        GROUP BY CustomerId 
         HAVING COUNT(*) > 1
     ) sub
 
@@ -645,11 +645,11 @@ BEGIN
         'Orders',
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
         ISNULL(SUM(dup_count - 1), 0),
-        'Duplicate Id values in Orders'
+        'Duplicate OrderId values in Orders'
     FROM (
-        SELECT Id, COUNT(*) AS dup_count 
+        SELECT OrderId, COUNT(*) AS dup_count 
         FROM silver.Orders
-        GROUP BY Id 
+        GROUP BY OrderId 
         HAVING COUNT(*) > 1
     ) sub
 
@@ -660,11 +660,11 @@ BEGIN
         'Products',
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
         ISNULL(SUM(dup_count - 1), 0),
-        'Duplicate Id values in Products'
+        'Duplicate ProductId values in Products'
     FROM (
-        SELECT Id, COUNT(*) AS dup_count 
+        SELECT ProductId, COUNT(*) AS dup_count 
         FROM silver.Products
-        GROUP BY Id 
+        GROUP BY ProductId 
         HAVING COUNT(*) > 1
     ) sub
 
@@ -675,11 +675,11 @@ BEGIN
         'Sellers',
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
         ISNULL(SUM(dup_count - 1), 0),
-        'Duplicate Id values in Sellers'
+        'Duplicate SellerId values in Sellers'
     FROM (
-        SELECT Id, COUNT(*) AS dup_count 
+        SELECT SellerId, COUNT(*) AS dup_count 
         FROM silver.Sellers 
-        GROUP BY Id 
+        GROUP BY SellerId 
         HAVING COUNT(*) > 1
     ) sub
 
@@ -705,11 +705,11 @@ BEGIN
         'OrderPayments',
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
         ISNULL(SUM(dup_count - 1), 0),
-        'Duplicate Composite PK (OrderId, Sequential)'
+        'Duplicate Composite PK (OrderId, PaymentSequential)'
     FROM (
-        SELECT OrderId, Sequential, COUNT(*) AS dup_count 
+        SELECT OrderId, PaymentSequential, COUNT(*) AS dup_count 
         FROM silver.OrderPayments 
-        GROUP BY OrderId, Sequential 
+        GROUP BY OrderId, PaymentSequential 
         HAVING COUNT(*) > 1
     ) sub
 

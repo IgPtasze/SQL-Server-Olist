@@ -42,19 +42,19 @@ BEGIN
     
         PRINT '    Inserting Data Into: silver.Customers';
         INSERT INTO silver.Customers (
-            Id,
-            UniqueId,
-            ZipCodePrefix,
-            City,
-            State,
+            CustomerId,
+            CustomerUniqueId,
+            CustomerZipCodePrefix,
+            CustomerCity,
+            CustomerState,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(Id), ''),
-            NULLIF(TRIM(UniqueId), ''),
-            NULLIF(TRIM(ZipCodePrefix), ''),
-            NULLIF(TRIM(City), ''),
-            NULLIF(REPLACE(REPLACE(TRIM(State), CHAR(13), ''), CHAR(10), ''), ''),
+            NULLIF(TRIM(CustomerId), ''),
+            NULLIF(TRIM(CustomerUniqueId), ''),
+            NULLIF(TRIM(CustomerZipCodePrefix), ''),
+            NULLIF(TRIM(CustomerCity), ''),
+            NULLIF(REPLACE(REPLACE(TRIM(CustomerState), CHAR(13), ''), CHAR(10), ''), ''),
             SYSDATETIME()
         FROM bronze.Customers;
 
@@ -74,19 +74,19 @@ BEGIN
 
         PRINT '    Inserting Data Into: silver.Geolocation';
         INSERT INTO silver.Geolocation (
-            ZipCodePrefix,
-            Lat,
-            Lng,
-            City,
-            State,
+            GeolocationZipCodePrefix,
+            GeolocationLat,
+            GeolocationLng,
+            GeolocationCity,
+            GeolocationState,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(ZipCodePrefix), ''),
-            TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(Lat), '')),
-            TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(Lng), '')),
-            NULLIF(TRIM(City), ''),
-            NULLIF(REPLACE(REPLACE(TRIM(State), CHAR(13), ''), CHAR(10), ''), ''),
+            NULLIF(TRIM(GeolocationZipCodePrefix), ''),
+            TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(GeolocationLat), '')),
+            TRY_CONVERT(DECIMAL(18,15), NULLIF(TRIM(GeolocationLng), '')),
+            NULLIF(TRIM(GeolocationCity), ''),
+            NULLIF(REPLACE(REPLACE(TRIM(GeolocationState), CHAR(13), ''), CHAR(10), ''), ''),
             SYSDATETIME()
         FROM bronze.Geolocation;
 
@@ -154,16 +154,16 @@ BEGIN
         PRINT '    Inserting Data Into: silver.OrderPayments';
         INSERT INTO silver.OrderPayments (
             OrderId,
-            Sequential,
-            Type,
-            Installments,
-            Value,
+            PaymentSequential,
+            PaymentType,
+            PaymentInstallments,
+            PaymentValue,
             LoadTimestamp
         )
         SELECT
             NULLIF(TRIM(OrderId), ''),
-            TRY_CONVERT(INT, NULLIF(TRIM(Sequential), '')),
-            NULLIF(TRIM(Type), ''),
+            TRY_CONVERT(INT, NULLIF(TRIM(PaymentSequential), '')),
+            NULLIF(TRIM(PaymentType), ''),
             /*
             DATA QUALITY FIX:
             Handle 2 records with 0 installments.
@@ -172,12 +172,12 @@ BEGIN
             division-by-zero errors in downstream financial metrics.
             */
             CASE 
-                WHEN TRY_CONVERT(INT, NULLIF(TRIM(Installments), '')) < 1 THEN 1 
-                ELSE TRY_CONVERT(INT, NULLIF(TRIM(Installments), '')) 
+                WHEN TRY_CONVERT(INT, NULLIF(TRIM(PaymentInstallments), '')) < 1 THEN 1 
+                ELSE TRY_CONVERT(INT, NULLIF(TRIM(PaymentInstallments), '')) 
             END,
             TRY_CONVERT(
                 DECIMAL(10,2),
-                NULLIF(REPLACE(REPLACE(TRIM(Value), CHAR(13), ''), CHAR(10), ''), '')
+                NULLIF(REPLACE(REPLACE(TRIM(PaymentValue), CHAR(13), ''), CHAR(10), ''), '')
             ),
             SYSDATETIME()
         FROM bronze.OrderPayments;
@@ -200,23 +200,23 @@ BEGIN
         INSERT INTO silver.OrderReviews (
             ReviewId,
             OrderId,
-            Score,
-            CommentTitle,
-            CommentMessage,
-            CreationDate,
-            AnswerTimestamp,
+            ReviewScore,
+            ReviewCommentTitle,
+            ReviewCommentMessage,
+            ReviewCreationDate,
+            ReviewAnswerTimestamp,
             LoadTimestamp
         )
         SELECT
             NULLIF(TRIM(ReviewId), ''),
             NULLIF(TRIM(OrderId), ''),
-            TRY_CONVERT(INT, NULLIF(TRIM(Score), '')),
-            NULLIF(TRIM(CommentTitle), ''),
-            NULLIF(TRIM(CommentMessage), ''),
-            TRY_CONVERT(DATETIME2, NULLIF(TRIM(CreationDate), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ReviewScore), '')),
+            NULLIF(TRIM(ReviewCommentTitle), ''),
+            NULLIF(TRIM(ReviewCommentMessage), ''),
+            TRY_CONVERT(DATETIME2, NULLIF(TRIM(ReviewCreationDate), '')),
             TRY_CONVERT(
                 DATETIME2,
-                NULLIF(REPLACE(REPLACE(TRIM(AnswerTimestamp), CHAR(13), ''), CHAR(10), ''), '')
+                NULLIF(REPLACE(REPLACE(TRIM(ReviewAnswerTimestamp), CHAR(13), ''), CHAR(10), ''), '')
             ),
             SYSDATETIME()
         FROM bronze.OrderReviews;
@@ -237,22 +237,22 @@ BEGIN
 
         PRINT '    Inserting Data Into: silver.Orders';
         INSERT INTO silver.Orders (
-            Id,
+            OrderId,
             CustomerId,
-            Status,
-            PurchaseTimestamp,
-            ApprovedAt,
-            DeliveredCarrierDate,
-            DeliveredCustomerDate,
-            EstimatedDeliveryDate,
+            OrderStatus,
+            OrderPurchaseTimestamp,
+            OrderApprovedAt,
+            OrderDeliveredCarrierDate,
+            OrderDeliveredCustomerDate,
+            OrderEstimatedDeliveryDate,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(Id), ''),
+            NULLIF(TRIM(OrderId), ''),
             NULLIF(TRIM(CustomerId), ''),
-            NULLIF(TRIM(Status), ''),
-            TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')),
-            TRY_CONVERT(DATETIME2, NULLIF(TRIM(ApprovedAt), '')),
+            NULLIF(TRIM(OrderStatus), ''),
+            TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderPurchaseTimestamp), '')),
+            TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderApprovedAt), '')),
             /*
             DATA QUALITY FIX:
             Handle 166 records where carrier pickup predated purchase timestamp.
@@ -261,15 +261,15 @@ BEGIN
             entity integrity without distorting logistics KPIs.
             */
             CASE 
-                WHEN TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) 
-                     < TRY_CONVERT(DATETIME2, NULLIF(TRIM(PurchaseTimestamp), '')) 
+                WHEN TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) 
+                     < TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderPurchaseTimestamp), '')) 
                 THEN NULL 
-                ELSE TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCarrierDate), '')) 
+                ELSE TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) 
             END,
-            TRY_CONVERT(DATETIME2, NULLIF(TRIM(DeliveredCustomerDate), '')),
+            TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCustomerDate), '')),
             TRY_CONVERT(
                 DATETIME2,
-                NULLIF(REPLACE(REPLACE(TRIM(EstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''), '')
+                NULLIF(REPLACE(REPLACE(TRIM(OrderEstimatedDeliveryDate), CHAR(13), ''), CHAR(10), ''), '')
             ),
             SYSDATETIME()
         FROM bronze.Orders;
@@ -290,29 +290,29 @@ BEGIN
 
         PRINT '    Inserting Data Into: silver.Products';
         INSERT INTO silver.Products (
-            Id,
-            CategoryName,
-            NameLength,
-            DescriptionLength,
-            PhotosQty,
-            WeightG,
-            LengthCm,
-            HeightCm,
-            WidthCm,
+            ProductId,
+            ProductCategoryName,
+            ProductNameLength,
+            ProductDescriptionLength,
+            ProductPhotosQty,
+            ProductWeightG,
+            ProductLengthCm,
+            ProductHeightCm,
+            ProductWidthCm,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(Id), ''),
-            NULLIF(TRIM(CategoryName), ''),
-            TRY_CONVERT(INT, NULLIF(TRIM(NameLenght), '')),
-            TRY_CONVERT(INT, NULLIF(TRIM(DescriptionLength), '')),
-            TRY_CONVERT(INT, NULLIF(TRIM(PhotosQty), '')),
-            TRY_CONVERT(INT, NULLIF(TRIM(WeightG), '')),
-            TRY_CONVERT(INT, NULLIF(TRIM(LengthCm), '')),
-            TRY_CONVERT(INT, NULLIF(TRIM(HeightCm), '')),
+            NULLIF(TRIM(ProductId), ''),
+            NULLIF(TRIM(ProductCategoryName), ''),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductNameLenght), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductDescriptionLenght), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductPhotosQty), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductWeightG), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductLengthCm), '')),
+            TRY_CONVERT(INT, NULLIF(TRIM(ProductHeightCm), '')),
             TRY_CONVERT(
                 INT,
-                NULLIF(REPLACE(REPLACE(TRIM(WidthCm), CHAR(13), ''), CHAR(10), ''), '')
+                NULLIF(REPLACE(REPLACE(TRIM(ProductWidthCm), CHAR(13), ''), CHAR(10), ''), '')
             ),
             SYSDATETIME()
         FROM bronze.Products;
@@ -333,17 +333,17 @@ BEGIN
 
         PRINT '    Inserting Data Into: silver.Sellers';
         INSERT INTO silver.Sellers (
-            Id,
-            ZipCodePrefix,
-            City,
-            State,
+            SellerId,
+            SellerZipCodePrefix,
+            SellerCity,
+            SellerState,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(Id), ''),
-            NULLIF(TRIM(ZipCodePrefix), ''),
-            NULLIF(TRIM(City), ''),
-            NULLIF(REPLACE(REPLACE(TRIM(State), CHAR(13), ''), CHAR(10), ''), ''),
+            NULLIF(TRIM(SellerId), ''),
+            NULLIF(TRIM(SellerZipCodePrefix), ''),
+            NULLIF(TRIM(SellerCity), ''),
+            NULLIF(REPLACE(REPLACE(TRIM(SellerState), CHAR(13), ''), CHAR(10), ''), ''),
             SYSDATETIME()
         FROM bronze.Sellers;
 
@@ -363,14 +363,14 @@ BEGIN
 
         PRINT '    Inserting Data Into: silver.ProductCategoryNameTranslation';
         INSERT INTO silver.ProductCategoryNameTranslation (
-            CategoryName,
-            CategoryNameEnglish,
+            ProductCategoryName,
+            ProductCategoryNameEnglish,
             LoadTimestamp
         )
         SELECT
-            NULLIF(TRIM(CategoryName), ''),
+            NULLIF(TRIM(ProductCategoryName), ''),
             NULLIF(
-                REPLACE(REPLACE(TRIM(CategoryNameEnglish), CHAR(13), ''), CHAR(10), ''),
+                REPLACE(REPLACE(TRIM(ProductCategoryNameEnglish), CHAR(13), ''), CHAR(10), ''),
                 ''
             ),
             SYSDATETIME()

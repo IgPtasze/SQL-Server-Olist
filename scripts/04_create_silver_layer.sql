@@ -22,12 +22,12 @@ DROP TABLE IF EXISTS silver.Customers;
 GO
 
 CREATE TABLE silver.Customers (
-	Id				NVARCHAR(50),
-	UniqueId		NVARCHAR(50),
-	ZipCodePrefix	NVARCHAR(10),
-	City			NVARCHAR(50),
-	State			NVARCHAR(5),
-	LoadTimestamp	DATETIME2
+	CustomerId				NVARCHAR(50),
+	CustomerUniqueId		NVARCHAR(50),
+	CustomerZipCodePrefix	NVARCHAR(10),
+	CustomerCity			NVARCHAR(50),
+	CustomerState			NVARCHAR(5),
+	LoadTimestamp			DATETIME2
 );
 GO
 
@@ -40,12 +40,12 @@ DROP TABLE IF EXISTS silver.Geolocation;
 GO
 
 CREATE TABLE silver.Geolocation (
-	ZipCodePrefix	NVARCHAR(10),
-	Lat				DECIMAL(18,15),
-	Lng				DECIMAL(18,15),
-	City			NVARCHAR(50),
-	State			NVARCHAR(5),
-	LoadTimestamp	DATETIME2
+	GeolocationZipCodePrefix	NVARCHAR(10),
+	GeolocationLat				DECIMAL(18,15),
+	GeolocationLng				DECIMAL(18,15),
+	GeolocationCity				NVARCHAR(50),
+	GeolocationState			NVARCHAR(5),
+	LoadTimestamp				DATETIME2
 );
 GO
 
@@ -78,12 +78,12 @@ DROP TABLE IF EXISTS silver.OrderPayments;
 GO
 
 CREATE TABLE silver.OrderPayments (
-	OrderId			NVARCHAR(50),
-	Sequential		INT,
-	Type			NVARCHAR(20),
-	Installments	INT,
-	Value			DECIMAL(10,2),
-	LoadTimestamp	DATETIME2
+	OrderId				NVARCHAR(50),
+	PaymentSequential	INT,
+	PaymentType			NVARCHAR(20),
+	PaymentInstallments	INT,
+	PaymentValue		DECIMAL(10,2),
+	LoadTimestamp		DATETIME2
 );
 GO
 
@@ -96,14 +96,14 @@ DROP TABLE IF EXISTS silver.OrderReviews;
 GO
 
 CREATE TABLE silver.OrderReviews (
-	ReviewId		NVARCHAR(50),
-	OrderId			NVARCHAR(50),
-	Score			INT,
-	CommentTitle	NVARCHAR(50),
-	CommentMessage	NVARCHAR(500),
-	CreationDate	DATETIME2,
-	AnswerTimestamp	DATETIME2,
-	LoadTimestamp	DATETIME2
+	ReviewId				NVARCHAR(50),
+	OrderId					NVARCHAR(50),
+	ReviewScore				INT,
+	ReviewCommentTitle		NVARCHAR(50),
+	ReviewCommentMessage	NVARCHAR(500),
+	ReviewCreationDate		DATETIME2,
+	ReviewAnswerTimestamp	DATETIME2,
+	LoadTimestamp			DATETIME2
 );
 GO
 
@@ -116,15 +116,15 @@ DROP TABLE IF EXISTS silver.Orders;
 GO
 
 CREATE TABLE silver.Orders (
-	Id						NVARCHAR(50),
-	CustomerId				NVARCHAR(50),
-	Status					NVARCHAR(20),
-	PurchaseTimestamp		DATETIME2,
-	ApprovedAt				DATETIME2,
-	DeliveredCarrierDate	DATETIME2,
-	DeliveredCustomerDate	DATETIME2,
-	EstimatedDeliveryDate	DATETIME2,
-	LoadTimestamp			DATETIME2
+	OrderId						NVARCHAR(50),
+	CustomerId					NVARCHAR(50),
+	OrderStatus					NVARCHAR(20),
+	OrderPurchaseTimestamp		DATETIME2,
+	OrderApprovedAt				DATETIME2,
+	OrderDeliveredCarrierDate	DATETIME2,
+	OrderDeliveredCustomerDate	DATETIME2,
+	OrderEstimatedDeliveryDate	DATETIME2,
+	LoadTimestamp				DATETIME2
 );
 GO
 
@@ -137,16 +137,16 @@ DROP TABLE IF EXISTS silver.Products;
 GO
 
 CREATE TABLE silver.Products (
-	Id					NVARCHAR(50),
-	CategoryName		NVARCHAR(60),
-	NameLength			INT,
-	DescriptionLength	INT,
-	PhotosQty			INT,
-	WeightG				INT,
-	LengthCm			INT,
-	HeightCm			INT,
-	WidthCm				INT,
-	LoadTimestamp		DATETIME2
+	ProductId					NVARCHAR(50),
+	ProductCategoryName			NVARCHAR(60),
+	ProductNameLength			INT,
+	ProductDescriptionLength	INT,
+	ProductPhotosQty			INT,
+	ProductWeightG				INT,
+	ProductLengthCm				INT,
+	ProductHeightCm				INT,
+	ProductWidthCm				INT,
+	LoadTimestamp				DATETIME2
 );
 GO
 
@@ -159,11 +159,11 @@ DROP TABLE IF EXISTS silver.Sellers;
 GO
 
 CREATE TABLE silver.Sellers (
-	Id				NVARCHAR(50),
-	ZipCodePrefix	NVARCHAR(10),
-	City			NVARCHAR(50),
-	State			NVARCHAR(5),
-	LoadTimestamp	DATETIME2
+	SellerId				NVARCHAR(50),
+	SellerZipCodePrefix		NVARCHAR(10),
+	SellerCity				NVARCHAR(50),
+	SellerState				NVARCHAR(5),
+	LoadTimestamp			DATETIME2
 );
 GO
 
@@ -176,8 +176,8 @@ DROP TABLE IF EXISTS silver.ProductCategoryNameTranslation;
 GO
 
 CREATE TABLE silver.ProductCategoryNameTranslation (
-	CategoryName			NVARCHAR(60),
-	CategoryNameEnglish	NVARCHAR(60),
-	LoadTimestamp		DATETIME2
+	ProductCategoryName			NVARCHAR(60),
+	ProductCategoryNameEnglish	NVARCHAR(60),
+	LoadTimestamp				DATETIME2
 );
 GO
