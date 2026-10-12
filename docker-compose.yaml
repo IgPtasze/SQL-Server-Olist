@@ -21,5 +21,17 @@ services:
     working_dir: /app
     command: python scripts/preprocess.py
 
+  sqlcmd:
+    image: mcr.microsoft.com/mssql-tools:latest
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - 'exec /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -C -b "$@"'
+      - sqlcmd
+
 volumes:
   sqlserver_data:

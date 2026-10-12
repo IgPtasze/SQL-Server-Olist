@@ -36,24 +36,32 @@ def main(source_dir: Path = SOURCE_DIR, target_dir: Path = TARGET_DIR) -> None:
     print(f"Source Directory: {source_dir}")
     print(f"Target Directory: {target_dir}\n")
 
-    csv_files = list(source_dir.glob("*.csv"))
+    csv_files = sorted(source_dir.glob("*.csv"))
+
     if not csv_files:
-        print("!!! WARNING: No CSV files found to process !!!")
-        return
+        raise FileNotFoundError(
+            f"No CSV files found in source directory: {source_dir}"
+        )
+
+    processed_files = 0
 
     for source_file in csv_files:
         start_time = time.time()
         target_file = target_dir / source_file.name
-        
-        print(f"  --> Processing: {source_file.name}...")
+
+        print(f"  --> Processing: {source_file.name}...", flush=True)
         process_csv_file(source_file, target_file)
         
         duration = round(time.time() - start_time, 2)
-        print(f"      Status: OK | Duration: {duration}s")
+        print(f"      Status: OK | Duration: {duration}s", flush=True)
+
+        processed_files += 1
 
     total_duration = round(time.time() - batch_start_time, 2)
+
     print("\n==================================================")
     print(f"PREPROCESSING COMPLETED IN {total_duration}s")
+    print(f"Files processed: {processed_files}")
     print("Data is ready for bronze.LoadData execution.")
     print("==================================================")
 
