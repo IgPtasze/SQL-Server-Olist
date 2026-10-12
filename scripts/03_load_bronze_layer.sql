@@ -12,9 +12,6 @@ into SQL Server running in a Linux-based Docker container.
 ===============================================================================
 */
 
-USE OlistDWH;
-GO
-
 CREATE OR ALTER PROCEDURE bronze.LoadData AS
 BEGIN
     DECLARE @StartTime DATETIME2, @EndTime DATETIME2, @BatchStartTime DATETIME2;

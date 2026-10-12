@@ -12,9 +12,6 @@ LoadTimestamp records the time when each row is loaded into the Silver layer.
 ===============================================================================
 */
 
-USE OlistDWH;
-GO
-
 CREATE OR ALTER PROCEDURE silver.LoadData AS
 BEGIN
     DECLARE @StartTime DATETIME2, @EndTime DATETIME2, @BatchStartTime DATETIME2;

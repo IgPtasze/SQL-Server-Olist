@@ -10,9 +10,6 @@ and LoadTimestamp values.
 ===============================================================================
 */
 
-USE OlistDWH;
-GO
-
 CREATE OR ALTER PROCEDURE silver.ValidateData AS
 BEGIN
     SET NOCOUNT ON;
