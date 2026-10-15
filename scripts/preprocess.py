@@ -19,7 +19,10 @@ def process_csv_file(source_file: Path, target_file: Path) -> None:
          open(target_file, "w", encoding="utf-16", newline="") as tgt:
         
         reader = csv.reader(src)
-        writer = csv.writer(tgt, quoting=csv.QUOTE_MINIMAL)
+        # lineterminator='\n' matches the SQL Server BULK INSERT ROWTERMINATOR
+        # ('0x0a00', i.e. LF only). csv.writer's default is '\r\n', which would
+        # otherwise leave a stray CR stuck to the last column of every row.
+        writer = csv.writer(tgt, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
         
         # Row-by-row stream writing
         for row in reader:

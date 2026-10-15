@@ -21,98 +21,77 @@ BEGIN
     SELECT
         'Row Count' AS TestName,
         'dim_customer' AS TableName,
-        CASE WHEN COUNT(*) = (SELECT COUNT(DISTINCT CustomerUniqueId) FROM silver.Customers)
-             THEN 'PASS' ELSE 'FAIL' END AS Status,
-        ABS(COUNT(*) - (SELECT COUNT(DISTINCT CustomerUniqueId) FROM silver.Customers)) AS IssueCount,
-        CONCAT(
-            'Silver: ', (SELECT COUNT(DISTINCT CustomerUniqueId) FROM silver.Customers),
-            ', Gold: ', COUNT(*)
-        ) AS Details
-    FROM gold.dim_customer
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END AS Status,
+        ABS(g.cnt - s.cnt) AS IssueCount,
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt) AS Details
+    FROM (SELECT COUNT(*) AS cnt FROM gold.dim_customer) g
+    CROSS JOIN (SELECT COUNT(DISTINCT CustomerUniqueId) AS cnt FROM silver.Customers) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'dim_product',
-        CASE WHEN COUNT(*) = (SELECT COUNT(*) FROM silver.Products)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS(COUNT(*) - (SELECT COUNT(*) FROM silver.Products)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.Products),
-            ', Gold: ', COUNT(*)
-        )
-    FROM gold.dim_product
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS(g.cnt - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.dim_product) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.Products) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'dim_seller',
-        CASE WHEN COUNT(*) - 1 = (SELECT COUNT(*) FROM silver.Sellers)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS((COUNT(*) - 1) - (SELECT COUNT(*) FROM silver.Sellers)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.Sellers),
-            ', Gold sellers excluding Unknown Member: ', COUNT(*) - 1
-        )
-    FROM gold.dim_seller
+        CASE WHEN g.cnt - 1 = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS((g.cnt - 1) - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold sellers excluding Unknown Member: ', g.cnt - 1)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.dim_seller) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.Sellers) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'fact_orders',
-        CASE WHEN COUNT(*) = (SELECT COUNT(*) FROM silver.Orders)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS(COUNT(*) - (SELECT COUNT(*) FROM silver.Orders)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.Orders),
-            ', Gold: ', COUNT(*)
-        )
-    FROM gold.fact_orders
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS(g.cnt - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.fact_orders) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.Orders) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'fact_order_items',
-        CASE WHEN COUNT(*) = (SELECT COUNT(*) FROM silver.OrderItems)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS(COUNT(*) - (SELECT COUNT(*) FROM silver.OrderItems)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.OrderItems),
-            ', Gold: ', COUNT(*)
-        )
-    FROM gold.fact_order_items
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS(g.cnt - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.fact_order_items) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.OrderItems) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'fact_order_payments',
-        CASE WHEN COUNT(*) = (SELECT COUNT(*) FROM silver.OrderPayments)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS(COUNT(*) - (SELECT COUNT(*) FROM silver.OrderPayments)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.OrderPayments),
-            ', Gold: ', COUNT(*)
-        )
-    FROM gold.fact_order_payments
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS(g.cnt - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.fact_order_payments) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.OrderPayments) s
 
     UNION ALL
 
     SELECT
         'Row Count',
         'fact_order_reviews',
-        CASE WHEN COUNT(*) = (SELECT COUNT(*) FROM silver.OrderReviews)
-             THEN 'PASS' ELSE 'FAIL' END,
-        ABS(COUNT(*) - (SELECT COUNT(*) FROM silver.OrderReviews)),
-        CONCAT(
-            'Silver: ', (SELECT COUNT(*) FROM silver.OrderReviews),
-            ', Gold: ', COUNT(*)
-        )
-    FROM gold.fact_order_reviews
+        CASE WHEN g.cnt = s.cnt THEN 'PASS' ELSE 'FAIL' END,
+        ABS(g.cnt - s.cnt),
+        CONCAT('Silver: ', s.cnt, ', Gold: ', g.cnt)
+    FROM (SELECT COUNT(*) AS cnt FROM gold.fact_order_reviews) g
+    CROSS JOIN (SELECT COUNT(*) AS cnt FROM silver.OrderReviews) s
 
 
     /* ============================================================================
@@ -607,15 +586,11 @@ BEGIN
     SELECT
         'Business Logic',
         'dim_seller',
-        CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
-        COUNT(*),
+        CASE WHEN EXISTS (SELECT 1 FROM gold.dim_seller WHERE SellerKey = -1)
+             THEN 'PASS' ELSE 'FAIL' END,
+        CASE WHEN EXISTS (SELECT 1 FROM gold.dim_seller WHERE SellerKey = -1)
+             THEN 0 ELSE 1 END,
         'Missing Unknown Member (SellerKey = -1)'
-    FROM gold.dim_seller
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM gold.dim_seller
-        WHERE SellerKey = -1
-    )
 
 
     /* ============================================================================

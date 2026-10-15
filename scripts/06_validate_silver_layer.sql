@@ -428,6 +428,7 @@ BEGIN
        OR CustomerId IS NULL
        OR OrderStatus IS NULL
        OR OrderPurchaseTimestamp IS NULL
+       OR OrderEstimatedDeliveryDate IS NULL
 
     UNION ALL
 

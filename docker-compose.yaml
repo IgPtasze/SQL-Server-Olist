@@ -3,14 +3,21 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver
     environment:
-      SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
       ACCEPT_EULA: "Y"
     ports:
       - "1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
       - ./data/prepared:/var/opt/mssql/csv
+      - ./scripts:/scripts:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   preprocessing:
     image: python:3.13-slim
@@ -20,18 +27,6 @@ services:
       - ./scripts:/app/scripts
     working_dir: /app
     command: python scripts/preprocess.py
-
-  sqlcmd:
-    image: mcr.microsoft.com/mssql-tools:latest
-    environment:
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
-    volumes:
-      - ./scripts:/scripts:ro
-    entrypoint:
-      - /bin/bash
-      - -c
-      - 'exec /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -C -b "$@"'
-      - sqlcmd
 
 volumes:
   sqlserver_data:
