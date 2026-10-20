@@ -15,6 +15,7 @@ The project builds a data warehouse in **Microsoft SQL Server**, using a Bronze 
 * [Bronze layer](#bronze-layer)
 * [Silver layer](#silver-layer)
 * [Gold layer — dimensional model](#gold-layer--dimensional-model)
+* [Example business queries](#example-business-queries)
 * [Manual execution](#manual-execution)
 * [Project structure](#project-structure)
 * [License](#license)
@@ -34,7 +35,7 @@ Current stage:
 * [x] Bronze layer
 * [x] Silver layer
 * [x] Gold layer
-* [ ] Business-oriented analytical queries
+* [x] Business-oriented analytical queries
 
 ## Architecture
 
@@ -59,7 +60,7 @@ Preprocessing
 Business Analysis
 ```
 
-The preprocessing, Bronze, Silver and Gold layers are fully implemented. Business-oriented analytical queries on top of the Gold layer are the next planned step.
+The preprocessing, Bronze, Silver and Gold layers are fully implemented. Example business-oriented analytical queries on top of the Gold layer are included in `scripts/10_business_queries.sql`.
 
 ## Technologies
 
@@ -88,6 +89,12 @@ Create a `.env` file in the project root:
 MSSQL_SA_PASSWORD=YourStrongPassword123!
 ```
 
+Optionally, set `MSSQL_PORT` in `.env` if port `1433` is already used on your machine (for example by a local SQL Server instance):
+
+```env
+MSSQL_PORT=14330
+```
+
 The `.env` file is excluded from version control.
 
 ### 3. Run the pipeline
@@ -104,14 +111,14 @@ The script will:
 4. execute the full SQL pipeline (Bronze → Silver → Gold, with validation after Silver and Gold),
 5. print a short validation summary and write a complete log to `logs/pipeline_<timestamp>.log`.
 
-A `PASS WITH WARNINGS` result for the Silver and Gold validation is expected — see [Validation status: PASS vs. PASS WITH WARNINGS](#validation-status-pass-vs-pass-with-warnings) for why.
+The expected result is `Silver Layer Validation: PASS` and `Gold Layer Validation: PASS` — see [Validation status: PASS vs. PASS WITH WARNINGS](#validation-status-pass-vs-pass-with-warnings) for why.
 
 ### Exploring the results
 
-Once the pipeline has completed, you can query the warehouse directly through the running SQL Server container:
+Once the pipeline has completed, you can query the warehouse directly through the running SQL Server container. No password is needed on the command line: Docker Compose passes it into the container as `SQLCMDPASSWORD`, which `sqlcmd` reads automatically.
 
 ```bash
-docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "<YOUR_PASSWORD>" -C -d OlistDWH -Q "SELECT TOP 10 * FROM gold.fact_orders"
+docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -d OlistDWH -Q "SELECT TOP 10 * FROM gold.fact_orders"
 ```
 
 ## Data preprocessing
@@ -158,8 +165,11 @@ The procedure:
 1. clears the target Bronze tables,
 2. loads the prepared CSV files using `BULK INSERT`,
 3. loads the data using SQL Server's Unicode/wide-character support,
-4. performs the load within a transaction,
-5. records the execution time of the load.
+4. parses every file as CSV (`FORMAT = 'CSV'`), so quoted values that contain commas stay in one field,
+5. performs the load within a transaction,
+6. records the execution time of the load.
+
+See [Case study: orphan sellers that were a loading bug](#case-study-orphan-sellers-that-were-a-loading-bug) for why `FORMAT = 'CSV'` matters.
 
 Using a transaction ensures that the Bronze layer is not left in a partially loaded state if an error occurs during the loading process. This provides a repeatable way of rebuilding the Bronze layer from the converted source files.
 
@@ -214,9 +224,21 @@ The validation procedure is executed after the Silver load to identify unexpecte
 
 During the Silver load, specific source data anomalies are handled deterministically:
 
-* **Invalid carrier dates:** 166 records with carrier pickup dates earlier than purchase timestamps are converted to `NULL` to preserve order data without distorting logistics KPIs.
-* **Zero installments:** Payment records with `0` installments are mapped to `1` (single-lump payment) to prevent division-by-zero errors in downstream calculations.
-* **Orphan sellers:** 3 seller references in order items missing from the seller directory are retained in Silver and mapped to an **Unknown Member (`-1`)** in the Gold dimensional schema.
+* **Carrier dates before the purchase:** in 166 orders the carrier pickup timestamp is earlier than the purchase timestamp. In 164 of them both timestamps are on the same calendar day (median gap about 0.6 hours), which points to how the source system records times rather than to an impossible event, so these dates are kept. Only the 2 carrier dates on an earlier calendar day than the purchase are converted to `NULL`, so that they do not distort logistics KPIs.
+* **Zero installments:** 2 payment records with `0` installments are mapped to `1` (single-lump payment) to prevent division-by-zero errors in downstream calculations.
+
+The Gold layer also has an **Unknown Member (`SellerKey = -1`)** for order items whose seller is missing from the seller directory. With the current load no order item uses it, but it keeps such rows in the model if the source data ever contains them.
+
+### Case study: orphan sellers that were a loading bug
+
+An earlier version of this project reported 3 "orphan" order items whose seller was missing from the seller directory, and mapped them to the Unknown Member. A root-cause analysis showed that the source data has no orphan sellers:
+
+1. Two rows in the sellers file have a city with commas, in quotes, e.g. `"rio de janeiro, rio de janeiro, brasil"`.
+2. Without `FORMAT = 'CSV'`, `BULK INSERT` ignored the quotes, split these rows at every comma and put the rest of the text into `SellerState` (5 characters), so both rows failed.
+3. `BULK INSERT` skips up to 10 failed rows by default, so the load still succeeded, and the two sellers silently disappeared from Bronze. Together they have 3 order items (2 and 1): the 3 "orphans".
+4. The Silver row count check compares Silver with Bronze, so it could not see rows that never reached Bronze.
+
+The same problem silently dropped 2 rows from the geolocation file. The fix was `FORMAT = 'CSV'` for every file: these rows are now parsed correctly and loaded.
 
 ### Validation status: PASS vs. PASS WITH WARNINGS
 
@@ -225,9 +247,14 @@ During the Silver load, specific source data anomalies are handled deterministic
 * **PASS** — no validation check reported an issue.
 * **PASS WITH WARNINGS (N issues)** — one or more checks reported an issue, but the pipeline is allowed to continue rather than being aborted.
 
-For this project, a warning is not noise to be ignored. The Olist dataset is a static, historical CSV export rather than a live, continuously changing feed. It was fully diagnosed once using `silver.ValidateData`, and every issue it currently reports corresponds exactly to the known, deliberately accepted anomalies documented above: the 166 invalid carrier dates, the 2 zero-installment payments, and the 3 orphan seller references. These are left in the Silver layer on purpose, and the orphan sellers are resolved explicitly in the Gold layer by mapping them to the Unknown Member (`SellerKey = -1`).
+For this project, a warning is not noise to be ignored. The Olist dataset is a static, historical CSV export rather than a live, continuously changing feed, and it was fully diagnosed once using `silver.ValidateData`. Both known anomalies are corrected during the Silver load, before validation runs, and the validation checks use the same rules (for example, the carrier date is compared by calendar day). The expected result for the dataset shipped in this repository is therefore:
 
-A `PASS WITH WARNINGS` result when running the pipeline against the dataset shipped in this repository is therefore expected and acceptable. Since the source data does not change, the issue count and the specific failing checks should always match what is documented here; any deviation from this (a different issue count, or a different check failing) would indicate something worth investigating, not an expected warning.
+```text
+Silver Layer Validation: PASS
+Gold Layer Validation: PASS
+```
+
+Since the source data does not change, any warning means that something in the pipeline has changed and is worth investigating.
 
 ## Gold layer — dimensional model
 
@@ -253,9 +280,11 @@ Each fact table has a clearly defined grain:
 | `fact_orders`         | One row per order      |
 | `fact_order_items`    | One row per order item |
 | `fact_order_payments` | One row per payment    |
-| `fact_order_reviews`  | One row per review     |
+| `fact_order_reviews`  | One row per review per order (`ReviewId` + `OrderId`) |
 
 This grain definition determines which dimensions and measures can be correctly associated with each fact.
+
+In the Olist data, a `ReviewId` is not unique: the same review can be linked to more than one order, and an order can have more than one review. The grain of `fact_order_reviews` is therefore the combination of `ReviewId` and `OrderId`.
 
 ### Dimension tables
 
@@ -280,6 +309,8 @@ The dimensions use a **Type 1 Slowly Changing Dimension (SCD)** approach.
 
 Historical attribute changes are not tracked because the Olist dataset represents a static historical dataset and does not provide a meaningful stream of dimension changes over time.
 
+In Olist, a `CustomerId` is created for each order, so one `CustomerUniqueId` can have several addresses. `dim_customer` (grain: `CustomerUniqueId`) keeps the address from the customer's most recent order, which is the Type 1 view of the customer's current location.
+
 ### Business-oriented Gold layer
 
 The Gold layer does not reproduce every column from the Silver layer. Columns were selected based on their analytical or business value.
@@ -295,6 +326,80 @@ The Gold layer also contains selected **derived business attributes**, such as:
 
 These attributes are calculated during the Gold transformation rather than copied directly from the source.
 
+### Model diagram
+
+The diagram shows the Gold star schema: four fact tables and four conformed dimensions. Only keys and the main measures are shown. `dim_date` is a role-playing dimension: the labels on its relationships show which date key each fact table uses.
+
+```mermaid
+erDiagram
+    fact_orders }o--|| dim_customer : "CustomerKey"
+    fact_orders }o--|| dim_date : "Purchase / Approved / Carrier / Delivered / Estimated"
+    fact_order_items }o--|| dim_customer : "CustomerKey"
+    fact_order_items }o--|| dim_product : "ProductKey"
+    fact_order_items }o--|| dim_seller : "SellerKey (-1 = Unknown)"
+    fact_order_items }o--|| dim_date : "PurchaseDateKey"
+    fact_order_payments }o--|| dim_customer : "CustomerKey"
+    fact_order_payments }o--|| dim_date : "OrderPurchaseDateKey"
+    fact_order_reviews }o--|| dim_customer : "CustomerKey"
+    fact_order_reviews }o--|| dim_date : "ReviewCreation / ReviewAnswer"
+
+    dim_customer {
+        int CustomerKey PK
+        nvarchar CustomerUniqueId UK
+        nvarchar City
+        nvarchar State
+    }
+    dim_product {
+        int ProductKey PK
+        nvarchar ProductId UK
+        nvarchar CategoryNameEnglish
+    }
+    dim_seller {
+        int SellerKey PK
+        nvarchar SellerId UK
+        nvarchar City
+        nvarchar State
+    }
+    dim_date {
+        int DateKey PK
+        date FullDate UK
+        smallint Year
+        tinyint Month
+        bit IsWeekend
+    }
+    fact_orders {
+        bigint OrderKey PK
+        nvarchar OrderId UK
+        int CustomerKey FK
+        int PurchaseDateKey FK
+        nvarchar OrderStatus
+        int DeliveryDays
+        bit IsLate
+    }
+    fact_order_items {
+        bigint OrderItemKey PK
+        nvarchar OrderId
+        int OrderItemId
+        int ProductKey FK
+        int SellerKey FK
+        decimal Price
+        decimal FreightValue
+    }
+    fact_order_payments {
+        bigint OrderPaymentKey PK
+        nvarchar OrderId
+        int PaymentSequential
+        nvarchar PaymentType
+        decimal PaymentValue
+    }
+    fact_order_reviews {
+        bigint OrderReviewKey PK
+        nvarchar OrderId
+        nvarchar ReviewId
+        int ReviewScore
+    }
+```
+
 ### Data relationships
 
 Fact tables are connected to dimensions through surrogate keys. Fact tables are not directly linked to one another.
@@ -303,9 +408,43 @@ Fact tables are connected to dimensions through surrogate keys. Fact tables are 
 
 The review fact does not contain a product key because a review is associated with an order rather than with a uniquely identifiable product. An order may contain multiple products, so assigning a review directly to a product would introduce an incorrect relationship.
 
+## Example business queries
+
+`scripts/10_business_queries.sql` answers 15 example business questions against the
+Gold layer, grouped into six areas:
+
+- **Sales & revenue** - monthly revenue trend with month-over-month change, top 3
+  product categories per quarter, Average Order Value with a 3-month moving average,
+  revenue by customer state.
+- **Logistics & delivery** - late delivery rate per month, average delivery time by
+  customer state, review score by delivery outcome (on-time vs late).
+- **Customers** - one-time vs repeat customers, top 10 customers by total spend.
+- **Sellers** - top 10 sellers by revenue, seller delivery performance vs average
+  review score.
+- **Payments** - payment method distribution and share of revenue, average
+  installment count by order-value quartile.
+- **Customer satisfaction** - review score distribution and monthly trend, product
+  categories with the lowest average review scores.
+
+Revenue, spend and payment-value queries (1–4, 9, 10, 12, 13) and the repeat-customer query (8) exclude orders with status `canceled` or `unavailable`, because these orders did not produce a completed sale. Logistics and review queries keep all orders, because they describe deliveries and reviews, not sales.
+
+The queries combine joins across fact tables with window functions (`RANK`,
+`DENSE_RANK`, `ROW_NUMBER`, `LAG`, moving averages, `NTILE`), rather than relying on
+GROUP BY alone.
+
+The script is independent of the main pipeline and is meant to be run manually once
+the Gold layer has been loaded:
+
+```bash
+docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -d OlistDWH -i /scripts/10_business_queries.sql
+```
+
+Results depend on the dataset loaded and are not reproduced here - run the script
+against your own Gold layer to see them.
+
 ## Manual execution
 
-`run_pipeline.bat` is the recommended way to run the project. The same steps can also be run manually, for example for debugging or to run a single layer in isolation.
+`run_pipeline.bat` (Windows) is the recommended way to run the project. The same steps can also be run manually, for example for debugging or to run a single layer in isolation.
 
 ```bash
 # Start SQL Server and wait for it to report healthy
@@ -315,7 +454,7 @@ docker compose up -d --wait sqlserver
 docker compose run --rm preprocessing
 
 # Run the full SQL pipeline (Bronze -> Silver -> Gold, with validation)
-docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "<YOUR_PASSWORD>" -C -b -i /scripts/run_pipeline.sql
+docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -i /scripts/run_pipeline.sql
 ```
 
 Individual numbered scripts in `scripts/` can also be run on their own (e.g. to rebuild only one layer), as long as the scripts they depend on have already been executed in order.
@@ -340,13 +479,16 @@ SQL-Server-Olist/
 │   ├── 07_create_gold_layer.sql
 │   ├── 08_load_gold_layer.sql
 │   ├── 09_validate_gold_layer.sql
+│   ├── 10_business_queries.sql
 │   └── run_pipeline.sql
 │
 ├── logs/
 │
 ├── docker-compose.yaml
 ├── run_pipeline.bat
+├── run_pipeline.sh
 ├── .env
+├── .gitattributes
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -354,4 +496,6 @@ SQL-Server-Olist/
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+The code in this project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+The MIT License does not apply to the source data in `data/raw`. The data is the **Brazilian E-Commerce Public Dataset by Olist**, published on [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce). It is included here only to make the project runnable in one step. The dataset's own license terms, as stated on the Kaggle page, apply to it.

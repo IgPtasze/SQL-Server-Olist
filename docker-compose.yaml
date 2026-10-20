@@ -4,16 +4,22 @@ services:
     container_name: sqlserver
     environment:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      SQLCMDPASSWORD: "${MSSQL_SA_PASSWORD}"
       ACCEPT_EULA: "Y"
     ports:
-      - "1433:1433"
+      # Set MSSQL_PORT in .env if port 1433 is already used on the host.
+      - "${MSSQL_PORT:-1433}:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
       - ./data/prepared:/var/opt/mssql/csv
       - ./scripts:/scripts:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q 'SELECT 1' || exit 1"
+        ]
       interval: 5s
       timeout: 3s
       retries: 20

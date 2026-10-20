@@ -541,9 +541,18 @@ BEGIN
         COUNT(*),
         'IsLate inconsistent with delivery and estimated dates'
     FROM gold.fact_orders
-    WHERE (IsLate = 1 AND (DeliveredDateKey IS NULL OR EstimatedDateKey IS NULL))
+    /*
+    IsLate must match the calendar dates in both directions:
+    - IsLate = 1 needs a delivery date strictly after the estimated date,
+    - IsLate = 0 needs a delivery date on or before the estimated date,
+    - IsLate IS NULL needs a missing delivery date.
+    DateKey values are YYYYMMDD integers, so they compare as calendar dates.
+    */
+    WHERE (IsLate = 1 AND (DeliveredDateKey IS NULL OR EstimatedDateKey IS NULL
+                           OR DeliveredDateKey <= EstimatedDateKey))
        OR (IsLate = 0 AND DeliveredDateKey IS NOT NULL AND EstimatedDateKey IS NOT NULL
            AND DeliveredDateKey > EstimatedDateKey)
+       OR (IsLate IS NULL AND DeliveredDateKey IS NOT NULL)
 
     UNION ALL
 
@@ -615,9 +624,17 @@ BEGIN
         'dim_date',
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
         COUNT(*),
-        'Invalid weekend indicator'
+        'IsWeekend does not match DayName'
     FROM gold.dim_date
-    WHERE IsWeekend NOT IN (0, 1)
+    /*
+    IsWeekend is derived from DATEPART(WEEKDAY), which depends on
+    SET DATEFIRST. DayName is derived from DATENAME, which does not.
+    A mismatch means that the weekday settings in gold.LoadData are wrong.
+    */
+    WHERE IsWeekend <> CASE
+                           WHEN DayName IN (N'Saturday', N'Sunday') THEN 1
+                           ELSE 0
+                       END
 
     UNION ALL
 

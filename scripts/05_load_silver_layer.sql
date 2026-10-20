@@ -5,8 +5,10 @@ Stored Procedure: Load Data Into Silver Layer (Cleansed & Conformed)
 Loads and transforms data from the Bronze layer into the Silver layer.
 
 The Silver layer contains cleaned and standardized data, including data type
-conversion, whitespace and line break removal, NULL handling and selected
-data quality corrections.
+conversion, whitespace trimming, NULL handling and selected data quality
+corrections. Line break characters (CR / LF) are removed only from the last
+column of each table, where a row terminator could remain attached to the
+value.
 
 LoadTimestamp records the time when each row is loaded into the Silver layer.
 ===============================================================================
@@ -118,11 +120,9 @@ BEGIN
             NULLIF(TRIM(ProductId), ''),
             /*
             DATA QUALITY NOTE:
-            Contains 3 orphan SellerIds missing from bronze.Sellers
-            (olist_sellers_dataset).
-
-            Retained in Silver to preserve order metrics; handled via an
-            'Unknown Member' (-1) in the Gold dimensional model.
+            Every SellerId in the source data exists in bronze.Sellers.
+            A SellerId without a match would be kept in Silver and mapped to
+            the 'Unknown Member' (-1) in the Gold dimensional model.
             */
             NULLIF(TRIM(SellerId), ''),
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(ShippingLimitDate), '')),
@@ -252,14 +252,18 @@ BEGIN
             TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderApprovedAt), '')),
             /*
             DATA QUALITY FIX:
-            Handle 166 records where carrier pickup predated purchase timestamp.
+            In 166 orders the carrier pickup timestamp is earlier than the
+            purchase timestamp. In 164 of them both are on the same calendar
+            day (median gap about 0.6 hours), which points to how the source
+            system records times rather than to an impossible event. These
+            dates are kept: the pickup happened on the purchase day.
 
-            Set invalid chronological carrier dates to NULL to preserve order
-            entity integrity without distorting logistics KPIs.
+            Only a carrier date on an earlier calendar day than the purchase
+            (2 orders) is set to NULL, to keep logistics KPIs correct.
             */
             CASE 
-                WHEN TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) 
-                     < TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderPurchaseTimestamp), '')) 
+                WHEN CAST(TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) AS DATE)
+                     < CAST(TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderPurchaseTimestamp), '')) AS DATE)
                 THEN NULL 
                 ELSE TRY_CONVERT(DATETIME2, NULLIF(TRIM(OrderDeliveredCarrierDate), '')) 
             END,

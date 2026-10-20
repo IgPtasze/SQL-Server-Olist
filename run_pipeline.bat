@@ -66,14 +66,15 @@ if not exist ".env" (
     goto :fail
 )
 
-REM Load MSSQL_SA_PASSWORD from .env so it is available to sqlcmd calls
-REM made directly from this script (docker compose only substitutes it
-REM internally for the services it starts).
-for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
-    if /i "%%A"=="MSSQL_SA_PASSWORD" set "MSSQL_SA_PASSWORD=%%B"
-)
-
-if not defined MSSQL_SA_PASSWORD (
+REM Verify MSSQL_SA_PASSWORD is defined in .env. Docker Compose reads the
+REM password itself (its own .env substitution, separate from cmd.exe) and
+REM passes it into the sqlserver container as SQLCMDPASSWORD, which sqlcmd
+REM then picks up automatically - this script never reads the password
+REM value into a cmd.exe variable, so a special character in it (e.g. a
+REM trailing "!") can never be mangled by delayed expansion. This check
+REM only confirms the key is present; it never touches its value.
+findstr /B /C:"MSSQL_SA_PASSWORD=" ".env" >nul
+if errorlevel 1 (
     set "FAIL_MESSAGE=MSSQL_SA_PASSWORD not found in .env file."
     goto :fail
 )
@@ -88,8 +89,9 @@ if not exist "scripts\run_pipeline.sql" (
     goto :fail
 )
 
-REM Check whether Docker Engine is reachable.
-docker info >>"%LOG_FILE%" 2>&1
+REM Check whether Docker Engine is reachable. The full "docker info" output
+REM is not written to the log, because it only adds noise.
+docker info >nul 2>&1
 if errorlevel 1 (
     set "FAIL_MESSAGE=Docker Engine is not running. Start Docker Desktop and try again."
     goto :fail
@@ -139,7 +141,10 @@ call :logecho
 call :logecho [4/4] Executing SQL pipeline...
 call :logecho       Bronze, Silver, Gold and validations
 
-docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "%MSSQL_SA_PASSWORD%" -C -b -i /scripts/run_pipeline.sql >>"%LOG_FILE%" 2>&1
+REM SQLCMDPASSWORD is provided by Docker Compose through the
+REM SQL Server container environment. The password is not read by this
+REM batch script or passed through cmd.exe as a command-line argument.
+docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -i /scripts/run_pipeline.sql >>"%LOG_FILE%" 2>&1
 if errorlevel 1 (
     set "FAIL_MESSAGE=SQL pipeline execution failed. See the log for details."
     goto :fail
@@ -149,8 +154,11 @@ call :logecho       SUCCESS
 call :logecho
 call :logecho       Validation summary:
 
+REM findstr reads the whole log before the loop starts, so appending the
+REM summary lines to the same log inside the loop is safe.
 for /f "usebackq delims=" %%L in (`findstr /C:"Silver Layer Validation:" /C:"Gold Layer Validation:" "%LOG_FILE%"`) do (
     echo       %%L
+    >>"%LOG_FILE%" echo       %%L
 )
 
 goto :success
@@ -181,21 +189,12 @@ call :get_duration
 
 call :logecho
 call :logecho ERROR: !FAIL_MESSAGE!
-
-echo.
-echo       Last log lines (see the full log file for complete details):
-echo       ------------------------------------------
-for /f "usebackq delims=" %%L in (`powershell -NoProfile -Command "Get-Content -LiteralPath '%LOG_FILE%' -Tail 30"`) do (
-    echo       %%L
-)
-echo       ------------------------------------------
-
 call :logecho ==========================================
 call :logecho PIPELINE FAILED
 call :logecho Duration: !DURATION!
 call :log Finished: %DATE% %TIME%
-echo Check log: logs\pipeline_%RUN_ID%.log
 call :logecho ==========================================
+echo Log: logs\pipeline_%RUN_ID%.log
 
 exit /b 1
 

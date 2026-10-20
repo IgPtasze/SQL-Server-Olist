@@ -31,6 +31,14 @@ Unknown Member (SellerKey = -1).
 
 CREATE OR ALTER PROCEDURE gold.LoadData AS
 BEGIN
+    /*
+    DATEPART(WEEKDAY) and DATENAME depend on the session settings.
+    Fix them here so that dim_date (DayOfWeek, DayName, MonthName, IsWeekend)
+    is the same for every login and server language.
+    */
+    SET LANGUAGE us_english;
+    SET DATEFIRST 7;  -- 1 = Sunday, 7 = Saturday
+
     DECLARE @StartTime DATETIME2, @EndTime DATETIME2, @BatchStartTime DATETIME2;
 
     BEGIN TRY
@@ -91,10 +99,12 @@ BEGIN
         PRINT '    Deleting Data From: gold.dim_customer';
         DELETE FROM gold.dim_customer;
 
-        -- Reset identity values for full reload.
-        DBCC CHECKIDENT ('gold.dim_seller', RESEED, 0);
-        DBCC CHECKIDENT ('gold.dim_product', RESEED, 0);
-        DBCC CHECKIDENT ('gold.dim_customer', RESEED, 0);
+        /*
+        No DBCC CHECKIDENT RESEED here: 07_create_gold_layer.sql drops and
+        recreates the Gold tables before every load, so the IDENTITY columns
+        always start from their seed (1). Reseeding a new table to 0 would make
+        the first surrogate key 0 instead of 1.
+        */
 
         SET @EndTime = SYSDATETIME();
         PRINT '    Table Clear Duration: ' + CAST(DATEDIFF(second, @StartTime, @EndTime) AS NVARCHAR) + ' seconds';
@@ -112,9 +122,11 @@ BEGIN
         /*
         Customer dimension grain is CustomerUniqueId.
 
-        A CustomerUniqueId can be associated with multiple CustomerId values
-        in the source data. One representative record is therefore selected
-        for each CustomerUniqueId.
+        In Olist, a CustomerId is created for each order, so one
+        CustomerUniqueId can have multiple CustomerId values with different
+        addresses. The record from the customer's most recent order is used
+        (Type 1 SCD: the dimension holds the latest known location).
+        CustomerId in the dimension is the CustomerId of that latest order.
         */
 
         ;WITH CustomerSource AS
@@ -127,9 +139,11 @@ BEGIN
                 c.CustomerState,
                 ROW_NUMBER() OVER (
                     PARTITION BY c.CustomerUniqueId
-                    ORDER BY c.CustomerId
+                    ORDER BY o.OrderPurchaseTimestamp DESC, c.CustomerId
                 ) AS RowNumber
             FROM silver.Customers c
+            LEFT JOIN silver.Orders o
+                ON c.CustomerId = o.CustomerId
             WHERE c.CustomerUniqueId IS NOT NULL
         )
         INSERT INTO gold.dim_customer (
@@ -171,10 +185,17 @@ BEGIN
             HeightCM,
             WidthCM
         )
+        /*
+        DATA QUALITY NOTE:
+        Some products have no category, and some categories have no English
+        translation. Use 'unknown' for a missing category and fall back to the
+        Portuguese name for a missing translation, so that no NULL category
+        is exposed in the Gold layer.
+        */
         SELECT
             p.ProductId,
-            p.ProductCategoryName,
-            t.ProductCategoryNameEnglish,
+            COALESCE(p.ProductCategoryName, N'unknown'),
+            COALESCE(t.ProductCategoryNameEnglish, p.ProductCategoryName, N'unknown'),
             p.ProductPhotosQty,
             p.ProductWeightG,
             p.ProductLengthCm,
@@ -440,11 +461,17 @@ BEGIN
                 ELSE 0
             END,
 
+            /*
+            IsLate compares calendar dates, not timestamps.
+            OrderEstimatedDeliveryDate is stored at 00:00, so a timestamp
+            comparison would mark a delivery on the estimated day itself
+            (e.g. at 15:00) as late.
+            */
             CASE
                 WHEN o.OrderDeliveredCustomerDate IS NOT NULL
                      AND o.OrderEstimatedDeliveryDate IS NOT NULL
-                     AND o.OrderDeliveredCustomerDate >
-                         o.OrderEstimatedDeliveryDate
+                     AND CAST(o.OrderDeliveredCustomerDate AS DATE) >
+                         CAST(o.OrderEstimatedDeliveryDate AS DATE)
                     THEN 1
                 WHEN o.OrderDeliveredCustomerDate IS NOT NULL
                     THEN 0

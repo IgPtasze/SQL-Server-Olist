@@ -534,9 +534,13 @@ BEGIN
         'Orders' AS TableName,
         CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS Status,
         COUNT(*) AS IssueCount,
-        'Delivered date before purchase date' AS Details
+        'Carrier date on an earlier day than purchase, or delivery before purchase' AS Details
     FROM silver.Orders
-    WHERE OrderDeliveredCarrierDate < OrderPurchaseTimestamp
+    /*
+    The carrier date is compared by calendar day, the same rule as in
+    silver.LoadData: a pickup earlier on the purchase day is accepted.
+    */
+    WHERE CAST(OrderDeliveredCarrierDate AS DATE) < CAST(OrderPurchaseTimestamp AS DATE)
        OR OrderDeliveredCustomerDate < OrderPurchaseTimestamp
 
 

@@ -41,6 +41,7 @@ BEGIN
         BULK INSERT bronze.Customers
         FROM '/var/opt/mssql/csv/olist_customers_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -67,6 +68,7 @@ BEGIN
         BULK INSERT bronze.Geolocation
         FROM '/var/opt/mssql/csv/olist_geolocation_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -93,6 +95,7 @@ BEGIN
         BULK INSERT bronze.OrderItems
         FROM '/var/opt/mssql/csv/olist_order_items_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -119,6 +122,7 @@ BEGIN
         BULK INSERT bronze.OrderPayments
         FROM '/var/opt/mssql/csv/olist_order_payments_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -172,6 +176,7 @@ BEGIN
         BULK INSERT bronze.Orders
         FROM '/var/opt/mssql/csv/olist_orders_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -198,6 +203,7 @@ BEGIN
         BULK INSERT bronze.Products
         FROM '/var/opt/mssql/csv/olist_products_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -224,6 +230,7 @@ BEGIN
         BULK INSERT bronze.Sellers
         FROM '/var/opt/mssql/csv/olist_sellers_dataset.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
@@ -250,6 +257,7 @@ BEGIN
         BULK INSERT bronze.ProductCategoryNameTranslation
         FROM '/var/opt/mssql/csv/product_category_name_translation.csv'
         WITH (
+            FORMAT = 'CSV',
             DATAFILETYPE = 'widechar',
             FIELDQUOTE = '"',
             FIRSTROW = 2,
