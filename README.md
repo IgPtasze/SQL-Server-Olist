@@ -331,71 +331,79 @@ These attributes are calculated during the Gold transformation rather than copie
 The diagram shows the Gold star schema: four fact tables and four conformed dimensions. Only keys and the main measures are shown. `dim_date` is a role-playing dimension: the labels on its relationships show which date key each fact table uses.
 
 ```mermaid
+
 erDiagram
-    fact_orders }o--|| dim_customer : "CustomerKey"
-    fact_orders }o--|| dim_date : "Purchase / Approved / Carrier / Delivered / Estimated"
-    fact_order_items }o--|| dim_customer : "CustomerKey"
-    fact_order_items }o--|| dim_product : "ProductKey"
-    fact_order_items }o--|| dim_seller : "SellerKey (-1 = Unknown)"
-    fact_order_items }o--|| dim_date : "PurchaseDateKey"
-    fact_order_payments }o--|| dim_customer : "CustomerKey"
-    fact_order_payments }o--|| dim_date : "OrderPurchaseDateKey"
-    fact_order_reviews }o--|| dim_customer : "CustomerKey"
-    fact_order_reviews }o--|| dim_date : "ReviewCreation / ReviewAnswer"
+    fact_orders }o--|| dim_customer : CustomerKey
+    fact_orders }o--|| dim_date : OrderDates
+    fact_order_items }o--|| dim_customer : CustomerKey
+    fact_order_items }o--|| dim_product : ProductKey
+    fact_order_items }o--|| dim_seller : SellerKey
+    fact_order_items }o--|| dim_date : PurchaseDateKey
+    fact_order_payments }o--|| dim_customer : CustomerKey
+    fact_order_payments }o--|| dim_date : OrderPurchaseDateKey
+    fact_order_reviews }o--|| dim_customer : CustomerKey
+    fact_order_reviews }o--|| dim_date : ReviewDates
 
     dim_customer {
         int CustomerKey PK
-        nvarchar CustomerUniqueId UK
-        nvarchar City
-        nvarchar State
+        string CustomerUniqueId UK
+        string City
+        string State
     }
+
     dim_product {
         int ProductKey PK
-        nvarchar ProductId UK
-        nvarchar CategoryNameEnglish
+        string ProductId UK
+        string CategoryNameEnglish
     }
+
     dim_seller {
         int SellerKey PK
-        nvarchar SellerId UK
-        nvarchar City
-        nvarchar State
+        string SellerId UK
+        string City
+        string State
     }
+
     dim_date {
         int DateKey PK
         date FullDate UK
-        smallint Year
-        tinyint Month
-        bit IsWeekend
+        int Year
+        int Month
+        boolean IsWeekend
     }
+
     fact_orders {
-        bigint OrderKey PK
-        nvarchar OrderId UK
+        int OrderKey PK
+        string OrderId UK
         int CustomerKey FK
         int PurchaseDateKey FK
-        nvarchar OrderStatus
+        string OrderStatus
         int DeliveryDays
-        bit IsLate
+        boolean IsLate
     }
+
     fact_order_items {
-        bigint OrderItemKey PK
-        nvarchar OrderId
+        int OrderItemKey PK
+        string OrderId
         int OrderItemId
         int ProductKey FK
         int SellerKey FK
-        decimal Price
-        decimal FreightValue
+        float Price
+        float FreightValue
     }
+
     fact_order_payments {
-        bigint OrderPaymentKey PK
-        nvarchar OrderId
+        int OrderPaymentKey PK
+        string OrderId
         int PaymentSequential
-        nvarchar PaymentType
-        decimal PaymentValue
+        string PaymentType
+        float PaymentValue
     }
+
     fact_order_reviews {
-        bigint OrderReviewKey PK
-        nvarchar OrderId
-        nvarchar ReviewId
+        int OrderReviewKey PK
+        string OrderId
+        string ReviewId
         int ReviewScore
     }
 ```
