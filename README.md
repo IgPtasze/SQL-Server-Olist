@@ -1,4 +1,4 @@
-# Olist SQL Server Data Warehouse
+# Olist Data Warehouse - SQL Server
 
 Data engineering portfolio project based on the **Brazilian E-Commerce Public Dataset by Olist**.
 
