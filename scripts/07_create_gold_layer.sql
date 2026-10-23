@@ -159,6 +159,7 @@ CREATE TABLE gold.fact_orders (
     DeliveryDays        INT,
     IsDelivered         BIT NOT NULL,
     IsLate              BIT,
+    IsCompletedSale     BIT NOT NULL,
     OrderCount          INT NOT NULL,
 
     CONSTRAINT PK_fact_orders
@@ -208,6 +209,7 @@ CREATE TABLE gold.fact_order_items (
     PurchaseDateKey     INT NOT NULL,
     Price               DECIMAL(10,2) NOT NULL,
     FreightValue        DECIMAL(10,2) NOT NULL,
+    IsCompletedSale     BIT NOT NULL,
     ItemCount           INT NOT NULL,
 
     CONSTRAINT PK_fact_order_items
@@ -248,6 +250,7 @@ CREATE TABLE gold.fact_order_payments (
     PaymentType            NVARCHAR(30) NOT NULL,
     PaymentValue           DECIMAL(10,2) NOT NULL,
     PaymentInstallments    INT NOT NULL,
+    IsCompletedSale        BIT NOT NULL,
 
     CONSTRAINT PK_fact_order_payments
         PRIMARY KEY (OrderPaymentKey),

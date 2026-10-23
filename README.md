@@ -99,9 +99,13 @@ The `.env` file is excluded from version control.
 
 ### 3. Run the pipeline
 
+On Windows:
+
 ```bat
 run_pipeline.bat
 ```
+
+`run_pipeline.bat` is Windows-only. On macOS or Linux, run the same steps with the Docker Compose commands from [Manual execution](#manual-execution).
 
 The script will:
 
@@ -138,7 +142,8 @@ To address these issues, a separate Python preprocessing container is used. It:
 * converts the files from **UTF-8 to UTF-16**,
 * writes rows with an LF-only line terminator, matching the `ROWTERMINATOR` used by `BULK INSERT`,
 * preserves CSV structure and delimiters,
-* writes the prepared files to the `data/prepared` directory.
+* writes the prepared files to the `data/prepared` directory,
+* counts the data records in every file and writes them to a row count manifest (`data/prepared/source_row_counts.csv`), which `bronze.LoadData` uses to check the row count of every Bronze table.
 
 The prepared files can then be loaded into SQL Server using `BULK INSERT` with Unicode/wide-character support.
 
@@ -166,10 +171,12 @@ The procedure:
 2. loads the prepared CSV files using `BULK INSERT`,
 3. loads the data using SQL Server's Unicode/wide-character support,
 4. parses every file as CSV (`FORMAT = 'CSV'`), so quoted values that contain commas stay in one field,
-5. performs the load within a transaction,
-6. records the execution time of the load.
+5. uses `MAXERRORS = 0` as a fail-fast setting, while relying on source-to-Bronze row count reconciliation to detect missing or extra records,
+6. compares the row count of every Bronze table with the row count manifest from preprocessing and raises an error if any count differs. Every CSV file in `data/raw` must have a Bronze table: an extra file also stops the load,
+7. performs the load within a transaction, so a failed check rolls back the whole Bronze load,
+8. records the execution time of the load.
 
-See [Case study: orphan sellers that were a loading bug](#case-study-orphan-sellers-that-were-a-loading-bug) for why `FORMAT = 'CSV'` matters.
+See [Case study: orphan sellers that were a loading bug](#case-study-orphan-sellers-that-were-a-loading-bug) for why `FORMAT = 'CSV'`, `MAXERRORS = 0` and the row count check matter.
 
 Using a transaction ensures that the Bronze layer is not left in a partially loaded state if an error occurs during the loading process. This provides a repeatable way of rebuilding the Bronze layer from the converted source files.
 
@@ -239,6 +246,13 @@ An earlier version of this project reported 3 "orphan" order items whose seller 
 4. The Silver row count check compares Silver with Bronze, so it could not see rows that never reached Bronze.
 
 The same problem silently dropped 2 rows from the geolocation file. The fix was `FORMAT = 'CSV'` for every file: these rows are now parsed correctly and loaded.
+
+`FORMAT = 'CSV'` removes the cause, but not the mechanism that hid it. Two more changes make this class of problem visible:
+
+* **`MAXERRORS = 0`** is configured on every BULK INSERT as an additional fail-fast safeguard. Its exact behavior for different classes of row-level errors is not the primary completeness guarantee in this pipeline.
+* **Source-to-Bronze row count check**: `preprocess.py` counts the records in every source file, and `bronze.LoadData` compares these counts with the corresponding Bronze tables. A mismatch stops the load and rolls back the transaction. This detects records skipped during import, including the two seller rows lost in the earlier implementation. It complements the Silver row count check, which only compares Silver with Bronze.
+
+**Limitation:** a parsing problem that moves values between columns inside one row keeps the row count, so neither check detects it. It is detected only if the moved value fails a type conversion or a Silver validation rule.
 
 ### Validation status: PASS vs. PASS WITH WARNINGS
 
@@ -317,6 +331,8 @@ The Gold layer does not reproduce every column from the Silver layer. Columns we
 
 For example, product attributes such as `NameLength` and `DescriptionLength` were excluded because they do not provide a sufficiently meaningful business use case for this project.
 
+The same applies to the geolocation dataset. It is loaded into Bronze and Silver, so the warehouse holds the complete source, but it is not part of the Gold model. It has about 1 million rows with many coordinates per zip code prefix, and the Gold layer already describes customer and seller location by city and state. Map-based analysis by coordinates is outside the scope of this project.
+
 The Gold layer also contains selected **derived business attributes**, such as:
 
 * delivery and processing durations,
@@ -380,6 +396,7 @@ erDiagram
         string OrderStatus
         int DeliveryDays
         boolean IsLate
+        boolean IsCompletedSale
     }
 
     fact_order_items {
@@ -388,8 +405,9 @@ erDiagram
         int OrderItemId
         int ProductKey FK
         int SellerKey FK
-        float Price
-        float FreightValue
+        decimal Price
+        decimal FreightValue
+        boolean IsCompletedSale
     }
 
     fact_order_payments {
@@ -397,7 +415,8 @@ erDiagram
         string OrderId
         int PaymentSequential
         string PaymentType
-        float PaymentValue
+        decimal PaymentValue
+        boolean IsCompletedSale
     }
 
     fact_order_reviews {
@@ -410,9 +429,11 @@ erDiagram
 
 ### Data relationships
 
-Fact tables are connected to dimensions through surrogate keys. Fact tables are not directly linked to one another.
+Fact tables are connected to dimensions through surrogate keys. There are no foreign keys between fact tables. The only load-time dependency is the `IsCompletedSale` flag (see below): `fact_order_items` and `fact_order_payments` copy it from `fact_orders`, so `fact_orders` is loaded first.
 
-`OrderId` is retained in the relevant fact tables as a business identifier, allowing the same order to be analyzed across different business processes without introducing fact-to-fact dependencies.
+`OrderId` is retained in the relevant fact tables as a business identifier (degenerate dimension), allowing the same order to be analyzed across different business processes without introducing fact-to-fact dependencies.
+
+The order status is an order-level attribute, but sales and payment analysis needs it at item and payment level. The business rule "completed sale" (any status except `canceled` and `unavailable`) is therefore applied once, in `gold.LoadData`, and stored as the `IsCompletedSale` flag in `fact_orders`, `fact_order_items` and `fact_order_payments`. Revenue queries filter the fact table they read and do not need to join it to `fact_orders`. `gold.ValidateData` checks that the flag is the same for every row of an order.
 
 The review fact does not contain a product key because a review is associated with an order rather than with a uniquely identifiable product. An order may contain multiple products, so assigning a review directly to a product would introduce an incorrect relationship.
 
@@ -434,7 +455,7 @@ Gold layer, grouped into six areas:
 - **Customer satisfaction** - review score distribution and monthly trend, product
   categories with the lowest average review scores.
 
-Revenue, spend and payment-value queries (1–4, 9, 10, 12, 13) and the repeat-customer query (8) exclude orders with status `canceled` or `unavailable`, because these orders did not produce a completed sale. Logistics and review queries keep all orders, because they describe deliveries and reviews, not sales.
+Revenue, spend and payment-value queries (1–4, 9, 10, 12, 13) and the repeat-customer query (8) keep only rows with `IsCompletedSale = 1`, i.e. they exclude orders with status `canceled` or `unavailable`, because these orders did not produce a completed sale. Logistics and review queries keep all orders, because they describe deliveries and reviews, not sales.
 
 The queries combine joins across fact tables with window functions (`RANK`,
 `DENSE_RANK`, `ROW_NUMBER`, `LAG`, moving averages, `NTILE`), rather than relying on
@@ -452,7 +473,7 @@ against your own Gold layer to see them.
 
 ## Manual execution
 
-`run_pipeline.bat` (Windows) is the recommended way to run the project. The same steps can also be run manually, for example for debugging or to run a single layer in isolation.
+`run_pipeline.bat` (Windows) is the recommended way to run the project. The same steps can also be run manually: on macOS or Linux, for debugging, or to run a single layer in isolation. The commands below use only Docker Compose, so they are the same on every operating system.
 
 ```bash
 # Start SQL Server and wait for it to report healthy
@@ -464,6 +485,8 @@ docker compose run --rm preprocessing
 # Run the full SQL pipeline (Bronze -> Silver -> Gold, with validation)
 docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -i /scripts/run_pipeline.sql
 ```
+
+Run the preprocessing step again whenever the files in `data/raw` change, and before the first SQL run after updating the project: `bronze.LoadData` needs the row count manifest that preprocessing writes. Without it, the Bronze load stops with a "file does not exist" error.
 
 Individual numbered scripts in `scripts/` can also be run on their own (e.g. to rebuild only one layer), as long as the scripts they depend on have already been executed in order.
 
@@ -494,9 +517,7 @@ SQL-Server-Olist/
 │
 ├── docker-compose.yaml
 ├── run_pipeline.bat
-├── run_pipeline.sh
 ├── .env
-├── .gitattributes
 ├── .gitignore
 ├── LICENSE
 └── README.md

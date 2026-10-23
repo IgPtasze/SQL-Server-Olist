@@ -11,12 +11,16 @@ Demonstrates aggregations, multi-table joins and window functions
 (RANK / DENSE_RANK / ROW_NUMBER, LAG, moving averages, NTILE, SUM() OVER()).
 
 Revenue, spend and payment-value queries (1-4, 9, 10, 12, 13) and the
-repeat-customer query (8) exclude orders with status 'canceled' or
-'unavailable', because these orders did not produce a completed sale.
+repeat-customer query (8) keep only rows with IsCompletedSale = 1, i.e. they
+exclude orders with status 'canceled' or 'unavailable', because these orders
+did not produce a completed sale.
 Logistics and review queries keep all orders, because they describe
 deliveries and reviews, not sales.
-fact_order_items and fact_order_payments do not store the order status, so
-they are joined to fact_orders (the order-grain fact) through OrderId.
+The flag is stored in fact_orders, fact_order_items and fact_order_payments
+(see gold.LoadData), so revenue queries filter the fact table they read and
+need no fact-to-fact join through OrderId. Queries 7 and 11 still join
+fact_orders by OrderId, because they need order-level measures such as
+DeliveryDays and IsLate.
 
 This script is meant to be run manually for ad-hoc analysis and is not part
 of run_pipeline.sql / run_pipeline.bat.
@@ -41,9 +45,8 @@ WITH MonthlyRevenue AS (
         SUM(oi.Price + oi.FreightValue) AS TotalRevenue,
         COUNT(DISTINCT oi.OrderId) AS OrderCount
     FROM gold.fact_order_items oi
-    JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
     JOIN gold.dim_date d ON oi.PurchaseDateKey = d.DateKey
-    WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE oi.IsCompletedSale = 1
     GROUP BY d.Year, d.Month
 )
 SELECT
@@ -74,8 +77,7 @@ WITH CategoryQuarterRevenue AS (
     FROM gold.fact_order_items oi
     JOIN gold.dim_product p ON oi.ProductKey = p.ProductKey
     JOIN gold.dim_date d ON oi.PurchaseDateKey = d.DateKey
-    JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
-    WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE oi.IsCompletedSale = 1
     GROUP BY d.Year, d.Quarter, p.CategoryNameEnglish
 ),
 RankedCategories AS (
@@ -106,9 +108,8 @@ WITH MonthlyAOV AS (
         d.Month,
         SUM(oi.Price + oi.FreightValue) / COUNT(DISTINCT oi.OrderId) AS AvgOrderValue
     FROM gold.fact_order_items oi
-    JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
     JOIN gold.dim_date d ON oi.PurchaseDateKey = d.DateKey
-    WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE oi.IsCompletedSale = 1
     GROUP BY d.Year, d.Month
 )
 SELECT
@@ -135,8 +136,7 @@ SELECT
     SUM(oi.Price + oi.FreightValue) AS TotalRevenue
 FROM gold.fact_order_items oi
 JOIN gold.dim_customer c ON oi.CustomerKey = c.CustomerKey
-JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
-WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+WHERE oi.IsCompletedSale = 1
 GROUP BY c.State
 ORDER BY TotalRevenue DESC;
 GO
@@ -221,7 +221,7 @@ WITH CustomerOrderCounts AS (
         CustomerKey,
         COUNT(*) AS OrdersPlaced
     FROM gold.fact_orders
-    WHERE OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE IsCompletedSale = 1
     GROUP BY CustomerKey
 )
 SELECT
@@ -245,8 +245,7 @@ WITH CustomerSpend AS (
         COUNT(DISTINCT oi.OrderId) AS OrderCount
     FROM gold.fact_order_items oi
     JOIN gold.dim_customer c ON oi.CustomerKey = c.CustomerKey
-    JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
-    WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE oi.IsCompletedSale = 1
     GROUP BY c.CustomerKey, c.CustomerUniqueId, c.State
 )
 SELECT TOP 10
@@ -275,9 +274,8 @@ WITH SellerRevenue AS (
         COUNT(DISTINCT oi.OrderId) AS OrderCount
     FROM gold.fact_order_items oi
     JOIN gold.dim_seller s ON oi.SellerKey = s.SellerKey
-    JOIN gold.fact_orders f ON oi.OrderId = f.OrderId
     WHERE s.SellerKey <> -1
-      AND f.OrderStatus NOT IN (N'canceled', N'unavailable')
+      AND oi.IsCompletedSale = 1
     GROUP BY s.SellerId, s.State
 )
 SELECT TOP 10
@@ -357,8 +355,7 @@ SELECT
         AS DECIMAL(5, 2)
     ) AS PctOfTotalRevenue
 FROM gold.fact_order_payments op
-JOIN gold.fact_orders f ON op.OrderId = f.OrderId
-WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+WHERE op.IsCompletedSale = 1
 GROUP BY PaymentType
 ORDER BY TotalValue DESC;
 GO
@@ -373,8 +370,7 @@ WITH OrderValue AS (
         SUM(op.PaymentValue) AS OrderValue,
         AVG(CAST(op.PaymentInstallments AS FLOAT)) AS AvgInstallments
     FROM gold.fact_order_payments op
-    JOIN gold.fact_orders f ON op.OrderId = f.OrderId
-    WHERE f.OrderStatus NOT IN (N'canceled', N'unavailable')
+    WHERE op.IsCompletedSale = 1
     GROUP BY op.OrderId
 ),
 OrderValueQuartiles AS (

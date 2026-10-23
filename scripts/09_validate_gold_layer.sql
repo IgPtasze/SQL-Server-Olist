@@ -592,6 +592,49 @@ BEGIN
 
     UNION ALL
 
+    /*
+    IsCompletedSale is derived from the order status. It must match the
+    order status rule in fact_orders, and every row of the same order must
+    carry the same value in fact_order_items and fact_order_payments.
+    */
+    SELECT
+        'Business Logic',
+        'fact_orders',
+        CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
+        COUNT(*),
+        'IsCompletedSale inconsistent with OrderStatus'
+    FROM gold.fact_orders
+    WHERE (IsCompletedSale = 1 AND OrderStatus IN (N'canceled', N'unavailable'))
+       OR (IsCompletedSale = 0 AND OrderStatus NOT IN (N'canceled', N'unavailable'))
+
+    UNION ALL
+
+    SELECT
+        'Business Logic',
+        'fact_order_items',
+        CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
+        COUNT(*),
+        'IsCompletedSale differs from fact_orders'
+    FROM gold.fact_order_items oi
+    JOIN gold.fact_orders f
+        ON oi.OrderId = f.OrderId
+    WHERE oi.IsCompletedSale <> f.IsCompletedSale
+
+    UNION ALL
+
+    SELECT
+        'Business Logic',
+        'fact_order_payments',
+        CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END,
+        COUNT(*),
+        'IsCompletedSale differs from fact_orders'
+    FROM gold.fact_order_payments op
+    JOIN gold.fact_orders f
+        ON op.OrderId = f.OrderId
+    WHERE op.IsCompletedSale <> f.IsCompletedSale
+
+    UNION ALL
+
     SELECT
         'Business Logic',
         'dim_seller',

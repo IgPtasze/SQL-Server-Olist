@@ -151,3 +151,21 @@ CREATE TABLE bronze.ProductCategoryNameTranslation (
 	ProductCategoryNameEnglish	NVARCHAR(60) 
 );
 GO
+
+/* ============================================================================
+   Source Row Count Manifest
+============================================================================ */
+
+/*
+Written by preprocess.py (data/prepared/source_row_counts.csv): one row per
+source file with the number of data records the csv parser read from it.
+bronze.LoadData compares these counts with the loaded Bronze tables, so that
+rows skipped, split or merged during BULK INSERT stop the load.
+*/
+DROP TABLE IF EXISTS bronze.SourceRowCounts;
+GO
+CREATE TABLE bronze.SourceRowCounts (
+	FileName		NVARCHAR(200),
+	SourceRowCount	NVARCHAR(20)
+);
+GO

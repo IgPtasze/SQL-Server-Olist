@@ -26,6 +26,15 @@ keys referencing the dimensions.
 
 Seller records that cannot be matched to dim_seller are assigned to the
 Unknown Member (SellerKey = -1).
+
+IsCompletedSale marks rows of orders that produced a completed sale (order
+status other than 'canceled' and 'unavailable'). The rule is defined once, in
+the fact_orders load. fact_order_items and fact_order_payments copy the flag
+from fact_orders by OrderId, so the three tables agree after the load
+(gold.ValidateData checks this). fact_orders must therefore be loaded first
+and must contain every order that has items or payments. Revenue queries
+filter on the flag of the fact table they read, so they do not need a
+fact-to-fact join to fact_orders by OrderId.
 ===============================================================================
 */
 
@@ -390,6 +399,7 @@ BEGIN
             DeliveryDays,
             IsDelivered,
             IsLate,
+            IsCompletedSale,
             OrderCount
         )
         SELECT
@@ -478,6 +488,16 @@ BEGIN
                 ELSE NULL
             END,
 
+            /*
+            Completed sale: any status except 'canceled' and 'unavailable'.
+            A NULL status is not a completed sale (NOT IN returns UNKNOWN).
+            */
+            CASE
+                WHEN o.OrderStatus NOT IN (N'canceled', N'unavailable')
+                    THEN 1
+                ELSE 0
+            END,
+
             1
         FROM silver.Orders o
         INNER JOIN silver.Customers c
@@ -507,6 +527,7 @@ BEGIN
             PurchaseDateKey,
             Price,
             FreightValue,
+            IsCompletedSale,
             ItemCount
         )
         SELECT
@@ -521,10 +542,13 @@ BEGIN
 
             oi.Price,
             oi.FreightValue,
+            fo.IsCompletedSale,  -- taken from fact_orders, where the rule is defined
             1
         FROM silver.OrderItems oi
         INNER JOIN silver.Orders o
             ON oi.OrderId = o.OrderId
+        INNER JOIN gold.fact_orders fo
+            ON oi.OrderId = fo.OrderId
         INNER JOIN silver.Customers c
             ON o.CustomerId = c.CustomerId
         INNER JOIN gold.dim_customer dc
@@ -554,7 +578,8 @@ BEGIN
             OrderPurchaseDateKey,
             PaymentType,
             PaymentValue,
-            PaymentInstallments
+            PaymentInstallments,
+            IsCompletedSale
         )
         SELECT
             op.OrderId,
@@ -566,10 +591,13 @@ BEGIN
 
             op.PaymentType,
             op.PaymentValue,
-            op.PaymentInstallments
+            op.PaymentInstallments,
+            fo.IsCompletedSale  -- taken from fact_orders, where the rule is defined
         FROM silver.OrderPayments op
         INNER JOIN silver.Orders o
             ON op.OrderId = o.OrderId
+        INNER JOIN gold.fact_orders fo
+            ON op.OrderId = fo.OrderId
         INNER JOIN silver.Customers c
             ON o.CustomerId = c.CustomerId
         INNER JOIN gold.dim_customer dc
