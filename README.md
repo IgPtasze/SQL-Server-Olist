@@ -302,12 +302,12 @@ In the Olist data, a `ReviewId` is not unique: the same review can be linked to 
 
 ### Dimension tables
 
-The model contains four conformed dimensions:
+The model contains four dimensions. Two of them are **conformed dimensions**, shared across multiple fact tables:
 
-* `dim_customer` — customer information and location.
-* `dim_product` — product attributes and category information.
-* `dim_seller` — seller information and location.
-* `dim_date` — calendar attributes used by the fact tables.
+* `dim_customer` — customer information and location; shared by all four fact tables.
+* `dim_date` — calendar attributes; shared by all four fact tables and used in multiple date roles.
+* `dim_product` — product attributes and category information; used by `fact_order_items`.
+* `dim_seller` — seller information and location; used by `fact_order_items`
 
 The `dim_date` dimension is used as a **role-playing dimension**, allowing different dates from the same fact table to be analyzed independently — for example purchase date, approval date, carrier date and delivery date.
 
@@ -344,25 +344,35 @@ These attributes are calculated during the Gold transformation rather than copie
 
 ### Model diagram
 
-The diagram shows the Gold star schema: four fact tables and four conformed dimensions. Only keys and the main measures are shown. `dim_date` is a role-playing dimension: the labels on its relationships show which date key each fact table uses.
+The diagram shows the Gold **fact constellation schema**: four fact tables connected to four dimensions. `dim_customer` and `dim_date` are conformed dimensions shared across all four fact tables; `dim_product` and `dim_seller` are used by `fact_order_items`. It includes the columns defined in the Gold DDL, with primary keys (PK), foreign keys (FK) and unique constraints (UK) marked explicitly. `dim_date` is a role-playing dimension: separate relationships show the date roles used by each fact table. Nullable date foreign keys represent dates that may be unavailable in the source data.
 
 ```mermaid
 
 erDiagram
     fact_orders }o--|| dim_customer : CustomerKey
-    fact_orders }o--|| dim_date : OrderDates
+    fact_orders }o--|| dim_date : PurchaseDateKey
+    fact_orders }o--o| dim_date : ApprovedDateKey
+    fact_orders }o--o| dim_date : CarrierDateKey
+    fact_orders }o--o| dim_date : DeliveredDateKey
+    fact_orders }o--|| dim_date : EstimatedDateKey
+
     fact_order_items }o--|| dim_customer : CustomerKey
     fact_order_items }o--|| dim_product : ProductKey
     fact_order_items }o--|| dim_seller : SellerKey
     fact_order_items }o--|| dim_date : PurchaseDateKey
+
     fact_order_payments }o--|| dim_customer : CustomerKey
     fact_order_payments }o--|| dim_date : OrderPurchaseDateKey
+
     fact_order_reviews }o--|| dim_customer : CustomerKey
-    fact_order_reviews }o--|| dim_date : ReviewDates
+    fact_order_reviews }o--|| dim_date : ReviewCreationDateKey
+    fact_order_reviews }o--o| dim_date : ReviewAnswerDateKey
 
     dim_customer {
         int CustomerKey PK
         string CustomerUniqueId UK
+        string CustomerId
+        string ZipCodePrefix
         string City
         string State
     }
@@ -370,12 +380,19 @@ erDiagram
     dim_product {
         int ProductKey PK
         string ProductId UK
+        string CategoryName
         string CategoryNameEnglish
+        int PhotosQty
+        int WeightG
+        int LengthCM
+        int HeightCM
+        int WidthCM
     }
 
     dim_seller {
         int SellerKey PK
         string SellerId UK
+        string ZipCodePrefix
         string City
         string State
     }
@@ -384,7 +401,13 @@ erDiagram
         int DateKey PK
         date FullDate UK
         int Year
+        int Quarter
         int Month
+        string MonthName
+        int Week
+        int DayOfMonth
+        int DayOfWeek
+        string DayName
         boolean IsWeekend
     }
 
@@ -393,29 +416,43 @@ erDiagram
         string OrderId UK
         int CustomerKey FK
         int PurchaseDateKey FK
+        int ApprovedDateKey FK
+        int CarrierDateKey FK
+        int DeliveredDateKey FK
+        int EstimatedDateKey FK
         string OrderStatus
+        int ApprovalDays
+        int CarrierDays
         int DeliveryDays
+        boolean IsDelivered
         boolean IsLate
         boolean IsCompletedSale
+        int OrderCount
     }
 
     fact_order_items {
         int OrderItemKey PK
         string OrderId
         int OrderItemId
+        int CustomerKey FK
         int ProductKey FK
         int SellerKey FK
+        int PurchaseDateKey FK
         decimal Price
         decimal FreightValue
         boolean IsCompletedSale
+        int ItemCount
     }
 
     fact_order_payments {
         int OrderPaymentKey PK
         string OrderId
         int PaymentSequential
+        int CustomerKey FK
+        int OrderPurchaseDateKey FK
         string PaymentType
         decimal PaymentValue
+        int PaymentInstallments
         boolean IsCompletedSale
     }
 
@@ -423,7 +460,11 @@ erDiagram
         int OrderReviewKey PK
         string OrderId
         string ReviewId
+        int CustomerKey FK
+        int ReviewCreationDateKey FK
+        int ReviewAnswerDateKey FK
         int ReviewScore
+        int ReviewCount
     }
 ```
 
