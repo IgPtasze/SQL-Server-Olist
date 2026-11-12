@@ -307,7 +307,7 @@ The model contains four dimensions. Two of them are **conformed dimensions**, sh
 * `dim_customer` — customer information and location; shared by all four fact tables.
 * `dim_date` — calendar attributes; shared by all four fact tables and used in multiple date roles.
 * `dim_product` — product attributes and category information; used by `fact_order_items`.
-* `dim_seller` — seller information and location; used by `fact_order_items`
+* `dim_seller` — seller information and location; used by `fact_order_items`.
 
 The `dim_date` dimension is used as a **role-playing dimension**, allowing different dates from the same fact table to be analyzed independently — for example purchase date, approval date, carrier date and delivery date.
 
