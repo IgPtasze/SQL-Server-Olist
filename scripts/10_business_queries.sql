@@ -22,6 +22,12 @@ need no fact-to-fact join through OrderId. Queries 7 and 11 still join
 fact_orders by OrderId, because they need order-level measures such as
 DeliveryDays and IsLate.
 
+Monthly trend queries (1 and 3) build a complete list of calendar months from
+gold.dim_date, limited to the range of purchase dates in the fact table, and
+LEFT JOIN the monthly results to it. A month without sales (e.g. November 2016)
+therefore stays in the result, so LAG and the moving average work on calendar
+months, not on rows.
+
 This script is meant to be run manually for ad-hoc analysis and is not part
 of run_pipeline.sql / run_pipeline.bat.
 ===============================================================================
@@ -36,9 +42,27 @@ GO
 
 /* ----------------------------------------------------------------------------
    1) Monthly revenue and order count, with month-over-month % change
+   (Every calendar month between the first and the last purchase is listed.
+   A month without sales has revenue 0, so LAG compares consecutive calendar
+   months. The % change after a month with 0 revenue is NULL.)
 ---------------------------------------------------------------------------- */
 
-WITH MonthlyRevenue AS (
+WITH Bounds AS (
+    SELECT
+        MIN(PurchaseDateKey) AS FirstKey,
+        MAX(PurchaseDateKey) AS LastKey
+    FROM gold.fact_order_items
+    WHERE IsCompletedSale = 1
+),
+Months AS (
+    SELECT DISTINCT
+        d.Year,
+        d.Month
+    FROM gold.dim_date d
+    CROSS JOIN Bounds b
+    WHERE d.DateKey BETWEEN b.FirstKey AND b.LastKey
+),
+MonthlyRevenue AS (
     SELECT
         d.Year,
         d.Month,
@@ -48,6 +72,17 @@ WITH MonthlyRevenue AS (
     JOIN gold.dim_date d ON oi.PurchaseDateKey = d.DateKey
     WHERE oi.IsCompletedSale = 1
     GROUP BY d.Year, d.Month
+),
+AllMonths AS (
+    SELECT
+        m.Year,
+        m.Month,
+        COALESCE(r.TotalRevenue, 0) AS TotalRevenue,
+        COALESCE(r.OrderCount, 0) AS OrderCount
+    FROM Months m
+    LEFT JOIN MonthlyRevenue r
+        ON r.Year = m.Year
+       AND r.Month = m.Month
 )
 SELECT
     Year,
@@ -60,7 +95,7 @@ SELECT
         / NULLIF(LAG(TotalRevenue) OVER (ORDER BY Year, Month), 0)
         AS DECIMAL(10, 2)
     ) AS RevenueChangePct
-FROM MonthlyRevenue
+FROM AllMonths
 ORDER BY Year, Month;
 GO
 
@@ -100,9 +135,28 @@ GO
 
 /* ----------------------------------------------------------------------------
    3) Monthly Average Order Value (AOV) with a 3-month moving average
+   (Every calendar month between the first and the last purchase is listed.
+   A month without orders has AOV NULL, not 0: there is no average order value
+   without orders. AVG ignores NULL, so the moving average always covers
+   3 calendar months, averaging the months that have orders.)
 ---------------------------------------------------------------------------- */
 
-WITH MonthlyAOV AS (
+WITH Bounds AS (
+    SELECT
+        MIN(PurchaseDateKey) AS FirstKey,
+        MAX(PurchaseDateKey) AS LastKey
+    FROM gold.fact_order_items
+    WHERE IsCompletedSale = 1
+),
+Months AS (
+    SELECT DISTINCT
+        d.Year,
+        d.Month
+    FROM gold.dim_date d
+    CROSS JOIN Bounds b
+    WHERE d.DateKey BETWEEN b.FirstKey AND b.LastKey
+),
+MonthlyAOV AS (
     SELECT
         d.Year,
         d.Month,
@@ -113,17 +167,20 @@ WITH MonthlyAOV AS (
     GROUP BY d.Year, d.Month
 )
 SELECT
-    Year,
-    Month,
-    CAST(AvgOrderValue AS DECIMAL(10, 2)) AS AvgOrderValue,
+    m.Year,
+    m.Month,
+    CAST(a.AvgOrderValue AS DECIMAL(10, 2)) AS AvgOrderValue,
     CAST(
-        AVG(AvgOrderValue) OVER (
-            ORDER BY Year, Month
+        AVG(a.AvgOrderValue) OVER (
+            ORDER BY m.Year, m.Month
             ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
         ) AS DECIMAL(10, 2)
     ) AS MovingAvg3Month
-FROM MonthlyAOV
-ORDER BY Year, Month;
+FROM Months m
+LEFT JOIN MonthlyAOV a
+    ON a.Year = m.Year
+   AND a.Month = m.Month
+ORDER BY m.Year, m.Month;
 GO
 
 /* ----------------------------------------------------------------------------
@@ -437,19 +494,29 @@ GO
 /* ----------------------------------------------------------------------------
    15) Product categories with the lowest average review scores
    (Categories with fewer than 30 reviews are excluded to avoid noisy
-   averages from very small samples. Joining reviews to order items means a
-   multi-category order's review counts once per category it contains.)
+   averages from very small samples. A review belongs to an order, not to a
+   product: reviews are first reduced to distinct (review, order, category)
+   rows, so a review counts once per category in its order - not once per
+   order item. A multi-category order's review counts once in each category.)
 ---------------------------------------------------------------------------- */
 
-WITH CategoryScores AS (
-    SELECT
-        p.CategoryNameEnglish AS CategoryName,
-        AVG(CAST(r.ReviewScore AS FLOAT)) AS AvgReviewScore,
-        COUNT(*) AS ReviewCount
+WITH ReviewCategory AS (
+    SELECT DISTINCT
+        r.OrderId,
+        r.ReviewId,
+        r.ReviewScore,
+        p.CategoryNameEnglish AS CategoryName
     FROM gold.fact_order_reviews r
     JOIN gold.fact_order_items oi ON r.OrderId = oi.OrderId
     JOIN gold.dim_product p ON oi.ProductKey = p.ProductKey
-    GROUP BY p.CategoryNameEnglish
+),
+CategoryScores AS (
+    SELECT
+        CategoryName,
+        AVG(CAST(ReviewScore AS FLOAT)) AS AvgReviewScore,
+        COUNT(*) AS ReviewCount
+    FROM ReviewCategory
+    GROUP BY CategoryName
     HAVING COUNT(*) >= 30
 )
 SELECT

@@ -289,14 +289,18 @@ The Gold layer covers four main business processes:
 
 Each fact table has a clearly defined grain:
 
-| Fact Table            | Grain                  |
-| ---------------------- | ---------------------- |
-| `fact_orders`         | One row per order      |
-| `fact_order_items`    | One row per order item |
-| `fact_order_payments` | One row per payment    |
-| `fact_order_reviews`  | One row per review per order (`ReviewId` + `OrderId`) |
+| Fact Table            | Grain                                                 | Type       			|
+| --------------------- | ----------------------------------------------------- | --------------------- |
+| `fact_orders`         | One row per order                                     | Accumulating snapshot |
+| `fact_order_items`    | One row per order item                                | Transaction           |
+| `fact_order_payments` | One row per payment                                   | Transaction           |
+| `fact_order_reviews`  | One row per review per order (`ReviewId` + `OrderId`) | Transaction           |
 
 This grain definition determines which dimensions and measures can be correctly associated with each fact.
+
+`fact_orders` is an **accumulating snapshot**: one row covers the whole order lifecycle, with milestone dates (purchase, approval, carrier pickup, delivery, estimated delivery) and the lags between them (`ApprovalDays`, `CarrierDays`, `DeliveryDays`). Because the source is a static export that is reloaded in full, the table holds the final state of each order; an incremental load would update these rows as orders progress.
+
+`Price`, `FreightValue` and `PaymentValue` are additive measures. `ReviewScore` and `PaymentInstallments` are non-additive and are averaged, not summed.
 
 In the Olist data, a `ReviewId` is not unique: the same review can be linked to more than one order, and an order can have more than one review. The grain of `fact_order_reviews` is therefore the combination of `ReviewId` and `OrderId`.
 
@@ -310,6 +314,19 @@ The model contains four dimensions. Two of them are **conformed dimensions**, sh
 * `dim_seller` — seller information and location; used by `fact_order_items`.
 
 The `dim_date` dimension is used as a **role-playing dimension**, allowing different dates from the same fact table to be analyzed independently — for example purchase date, approval date, carrier date and delivery date.
+
+### Bus matrix
+
+The bus matrix shows which dimensions each business process uses:
+
+| Business process (fact)              | Date                                               | Customer | Product | Seller | Order (degenerate)               |
+| ------------------------------------ | -------------------------------------------------- | -------- | ------- | ------ | -------------------------------- |
+| Orders & Fulfillment (`fact_orders`) | ✓ purchase, approval, carrier, delivery, estimated | ✓        |         |        | ✓ `OrderId`                      |
+| Sales (`fact_order_items`)           | ✓ purchase                                         | ✓        | ✓       | ✓      | ✓ `OrderId`, `OrderItemId`       |
+| Payments (`fact_order_payments`)     | ✓ purchase                                         | ✓        |         |        | ✓ `OrderId`, `PaymentSequential` |
+| Reviews (`fact_order_reviews`)       | ✓ creation, answer                                 | ✓        |         |        | ✓ `OrderId`, `ReviewId`          |
+
+Date and Customer appear in every row: they are the conformed dimensions that allow drill-across analysis between business processes.
 
 ### Surrogate keys
 
